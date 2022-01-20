@@ -2,7 +2,7 @@ import pytest
 import yaml
 import random
 from environments.defend import ZoneDefense
-from simulation.objects import Types
+from simulation.particles import Types
 
 
 @pytest.fixture(params=["environments/config/defend_config.yaml"])
@@ -22,7 +22,6 @@ def test_init_gym(env_config):
 
         enemies = env.simulator.get_all_of_type(Types.ENEMY)
         action = random.choice(list(range(len(enemies) + 1)))
-        print(f"************selected {action}************")
         obs, rwd, done, info = env.step({"agent": action})
 
         all_done = done["__all__"]

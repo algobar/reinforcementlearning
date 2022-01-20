@@ -1,4 +1,4 @@
-from simulation.objects import SimpleWorld, create_position, Particle
+from simulation.particles import SimpleWorld, create_position, Particle
 from simulation.behaviors import go_to_point_2d, magnitude
 
 

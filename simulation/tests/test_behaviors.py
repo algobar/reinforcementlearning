@@ -5,7 +5,7 @@ from simulation.behaviors import (
     plan_2d_intercept,
 )
 
-from simulation.objects import create_position
+from simulation.particles import create_position
 
 
 def test_straight_line_path():
@@ -15,9 +15,7 @@ def test_straight_line_path():
     speed = 1
     delta_t = 0.5
 
-    straight_line_path_2d(
-        current=current, end=goal, speed=speed, timestep=delta_t
-    )
+    straight_line_path_2d(current=current, end=goal, speed=speed, timestep=delta_t)
 
     assert current[0] == 0.5
 
@@ -73,9 +71,7 @@ def test_collision():
     for i in range(1000):
 
         straight_line_path_2d(tgt_pos, tgt_goal, tgt_speed, delta_t)
-        straight_line_path_2d(
-            interceptor, int_goal, interceptor_speed, delta_t
-        )
+        straight_line_path_2d(interceptor, int_goal, interceptor_speed, delta_t)
 
         dist_between = numpy.linalg.norm(interceptor - tgt_pos)
 

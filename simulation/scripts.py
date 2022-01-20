@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Callable
-from simulation.objects import Types
+from simulation.particles import Types
 
 
 class Script(ABC):

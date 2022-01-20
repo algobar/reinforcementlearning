@@ -1,5 +1,4 @@
 from abc import ABC
-from enum import Enum, auto
 import logging
 from typing import Any, Dict, List, OrderedDict, Tuple
 from gym import spaces
@@ -7,9 +6,8 @@ from ray.rllib.env import MultiAgentEnv
 import numpy
 from simulation.simulator import SimpleWorld
 from simulation.behaviors import GoToPoint2D, RemainInLocationSeconds
-from simulation.objects import (
+from simulation.particles import (
     Particle,
-    SimulationEvents,
     Types,
 )
 from simulation.scripts import CreateEntityInterval, Script
@@ -131,9 +129,7 @@ class ZoneDefense(MultiAgentEnv):
             spaces.Space: [description]
         """
         distance = spaces.Box(low=numpy.array([-100]), high=numpy.array([100]))
-        zone_bearing_x = spaces.Box(
-            low=numpy.array([-1]), high=numpy.array([1])
-        )
+        zone_bearing_x = spaces.Box(low=numpy.array([-1]), high=numpy.array([1]))
         zone_bearing_y = zone_bearing_x
 
         space: dict = {
@@ -164,9 +160,7 @@ class ZoneDefense(MultiAgentEnv):
         self.simulator.reset()
 
         # create the central base that enemies try to get to
-        self.base = self.simulator.create_particle(
-            name="base", type=Types.BASE
-        )
+        self.base = self.simulator.create_particle(name="base", type=Types.BASE)
         self.base.set_position(0, 0, 0)
         self.base.set_radius(self.base_radius)
 
@@ -193,9 +187,7 @@ class ZoneDefense(MultiAgentEnv):
         self.simulator.add_script(enemy_script)
 
         # create agent(s)
-        self.agent = self.simulator.create_particle(
-            name="agent", type=Types.AGENT
-        )
+        self.agent = self.simulator.create_particle(name="agent", type=Types.AGENT)
         self.agent.set_position(0, 0, 0)
         self.agent.set_radius(self.agent_radius)
 
@@ -206,9 +198,7 @@ class ZoneDefense(MultiAgentEnv):
         enemy_distance = [
             (
                 enemy,
-                calculations.distance_between(
-                    self.simulator.get(enemy), self.base
-                ),
+                calculations.distance_between(self.simulator.get(enemy), self.base),
             )
             for enemy in self.simulator.get_all_of_type(Types.ENEMY)
         ]
@@ -263,7 +253,7 @@ class ZoneDefense(MultiAgentEnv):
     def _implement_actions(self, actions: Dict) -> None:
 
         for name in actions:
-
+            self._logger.debug(f"agent picked {actions[name]}")
             if actions[name] == 0:
 
                 at_base = calculations.in_bounds_of(self.agent, self.base)
@@ -282,16 +272,22 @@ class ZoneDefense(MultiAgentEnv):
 
                 continue
 
-            enemies = self.simulator.get_all_of_type(Types.ENEMY)
+            enemies: List = self._order_enemies_by_distance()
 
+            # subtract one b/c of go to base as 0
             target = enemies[actions[name] - 1]
 
-            # check and see that it can actually make it
-            # to the target
+            # calculate the intercept position
+            intercept_pos = calculations.create_intercept_location(
+                self.agent,
+                self.simulator.get(target),
+                self.agent_speed,
+                self.enemy_speed,
+            )
 
             self.agent.add_behavior(
                 GoToPoint2D(
-                    end=self.simulator.get(target).position,
+                    end=intercept_pos,
                     speed=self.agent_speed,
                 )
             )
@@ -310,8 +306,7 @@ class ZoneDefense(MultiAgentEnv):
 
         conditions["collision"] = any(
             [
-                self.agent.name in task.names
-                and self.base.name not in task.names
+                self.agent.name in task.names and self.base.name not in task.names
                 for task in self.simulator.get_collision_events()
             ]
         )
@@ -342,9 +337,7 @@ class ZoneDefense(MultiAgentEnv):
             self._logger.info(f"{self.agent.position}")
             self._logger.info(f"removed {enemy_to_remove}")
 
-    def step(
-        self, actions: Dict
-    ) -> Tuple[Dict[str, Any], dict, float, Dict[str, Any]]:
+    def step(self, actions: Dict) -> Tuple[Dict[str, Any], dict, float, Dict[str, Any]]:
 
         self._implement_actions(actions)
         self.simulator.update()
@@ -362,9 +355,12 @@ class ZoneDefense(MultiAgentEnv):
         # collecting rewards
 
         # collect dones
-        dones[self.agent.name] = any(
-            [dones(self.simulator) for dones in self._done_funcs]
-        )
+        done_conditions = [
+            (dones.__class__.__name__, dones(self.simulator))
+            for dones in self._done_funcs
+        ]
+        print(done_conditions)
+        dones[self.agent.name] = any([i[1] for i in done_conditions])
         dones["__all__"] = dones[self.agent.name]
 
         return obs, rewards, dones, {}

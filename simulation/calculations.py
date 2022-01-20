@@ -2,7 +2,7 @@ import math
 import numpy
 from typing import Tuple
 
-from simulation.objects import Particle
+from simulation.particles import Particle
 
 ABSOLUTE_NORTH: numpy.array = numpy.array([0, 1, 0], dtype=numpy.float32)
 
@@ -20,9 +20,7 @@ def magnitude(vec: numpy.array) -> float:
     return numpy.linalg.norm(vec) + 0.0001
 
 
-def calculate_absolute_bearing(
-    origin: numpy.array, destination: numpy.array
-) -> float:
+def calculate_absolute_bearing(origin: numpy.array, destination: numpy.array) -> float:
     """Calculate the bearing from the origin to the destination. Note that
     with the particle designation, this does not include any heading specific
     information, assuming that the bearing angle being calculated from the
@@ -129,19 +127,29 @@ def calculate_2d_intercept(
 
     if sin_c > 1:
         return None, None
+    elif sin_a < 0.001:
+        """
+        case where the interceptor lies
+        on same line as target's path,
+        causing divide by zero error. Problem
+        reduces to where they should meet along
+        that line.
+        """
+        dist_between: float = magnitude(AC)
+        time: float = dist_between / (interceptor_speed + target_speed)
+        mag_ab: float = time * target_speed
 
-    sin_b: float = sin_a * math.sqrt(1 - sin_c ** 2) + sin_c * math.sqrt(
-        1 - sin_a ** 2
-    )
-
-    mag_ab: float = magnitude(AC) * sin_c / sin_b
+    else:
+        sin_b: float = sin_a * math.sqrt(1 - sin_c ** 2) + sin_c * math.sqrt(
+            1 - sin_a ** 2
+        )
+        mag_ab: float = magnitude(AC) * sin_c / sin_b
+        time: float = mag_ab / target_speed
 
     angle_between: float = math.atan2(AT[1], AT[0])
 
     delta_x: float = mag_ab * math.cos(angle_between)
     delta_y: float = mag_ab * math.sin(angle_between)
-
-    time: float = mag_ab / target_speed
 
     return (target_pos + [delta_x, delta_y, 0], time)
 
@@ -203,7 +211,11 @@ def create_intercept_location(
 ) -> numpy.array:
 
     location, _ = calculate_2d_intercept(
-        interceptor.position, target.position, interceptor_speed, target_speed
+        interceptor.position,
+        target.position,
+        target.behavior.end,
+        interceptor_speed,
+        target_speed,
     )
 
     return location

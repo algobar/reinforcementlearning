@@ -4,7 +4,7 @@ import numpy
 from dataclasses import dataclass, field
 from functools import partial
 from simulation.calculations import magnitude, straight_line_path_2d
-from simulation.objects import Particle
+from simulation.particles import Particle
 
 
 class Behavior(ABC):
@@ -24,15 +24,11 @@ class GoToPoint2D(Behavior):
     def __post_init__(self):
 
         self.end = numpy.copy(self.end)
-        self._behavior = partial(
-            straight_line_path_2d, end=self.end, speed=self.speed
-        )
+        self._behavior = partial(straight_line_path_2d, end=self.end, speed=self.speed)
 
     def __call__(self, particle: Particle, timestep: float, **kwds) -> bool:
 
-        particle.position = self._behavior(
-            current=particle.position, timestep=timestep
-        )
+        particle.position = self._behavior(current=particle.position, timestep=timestep)
 
         return magnitude(particle.position - self.end) < self.threshold
 

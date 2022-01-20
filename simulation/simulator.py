@@ -1,41 +1,13 @@
 from dataclasses import dataclass, field
 from typing import List
-import simulation
 from simulation.scripts import Script
-from .objects import (
-    CollisionEvent,
+from .particles import (
     Particle,
-    SimulationEvents,
-    TaskCompletedEvent,
     Types,
     create_position,
 )
 
-
-def check_for_collisions(particles: dict):
-
-    names: set = set(particles.keys())
-    collisions: List[CollisionEvent] = []
-
-    while len(names) > 1:
-
-        to_check: str = names.pop()
-
-        for other_name in names:
-            # need to check if in either's radius
-            in_bounds = simulation.calculations.in_bounds_of(
-                particles[to_check], particles[other_name]
-            ) or simulation.calculations.in_bounds_of(
-                particles[other_name], particles[to_check]
-            )
-
-            if not in_bounds:
-                continue
-
-            event = CollisionEvent({to_check, other_name})
-            collisions.append(event)
-
-    return collisions
+from simulation.events import check_for_collisions, TaskCompletedEvent
 
 
 @dataclass
@@ -86,9 +58,7 @@ class SimpleWorld:
 
     def create_particle(self, name: str, type: Types) -> Particle:
 
-        part = Particle(
-            name=name, position=create_position(0, 0, 0), type=type
-        )
+        part = Particle(name=name, position=create_position(0, 0, 0), type=type)
 
         self.add_object(part)
 
@@ -119,15 +89,6 @@ class SimpleWorld:
     def get_added_particles(self) -> List:
 
         return list(self._added_particles)
-
-    def get_events(self) -> SimulationEvents:
-
-        sim_events = SimulationEvents()
-        sim_events.collisions = self.get_collision_events()
-        sim_events.task_completed = self.get_untasked_agents()
-        sim_events.new_particles_added = list(self._added_particles)
-
-        return sim_events
 
     def update(self) -> None:
         """Updates the objects given the delta timestep in seconds"""

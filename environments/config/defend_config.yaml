@@ -1,9 +1,9 @@
-simultaneous_enemies: 1
+simultaneous_enemies: 2
 total_episode_enemies: 10
 agent_speed: 2
 enemy_speed: 1
 grid_size: 20
-base_radius: 5
+base_radius: 1
 agent_radius: 0.5
 enemy_radius: 0.5
 sim_step_size: 0.1
