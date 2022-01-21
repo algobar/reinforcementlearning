@@ -16,15 +16,16 @@ from simulation import calculations
 
 class BaseCallable(ABC):
     def __init__(self, **kwargs) -> None:
-        ...
+        self.__name__ = self.__class__.__name__
 
     def __call__(self, **kwargs) -> Any:
         ...
 
 
-class MaxTimeExceededDone:
+class MaxTimeExceededCondition(BaseCallable):
     def __init__(self, max_time: float, **kwargs) -> None:
         self.max_time = max_time
+        super().__init__()
 
     def __call__(self, simulator: SimpleWorld, **kwargs) -> bool:
         if simulator.time >= self.max_time:
@@ -32,7 +33,7 @@ class MaxTimeExceededDone:
         return False
 
 
-class EnemyEnteredBaseDone:
+class EnemyEnteredBaseCondition(BaseCallable):
     def __call__(self, simulator: SimpleWorld) -> bool:
         agent = simulator.get_all_of_type(Types.AGENT)[0]
 
@@ -43,6 +44,31 @@ class EnemyEnteredBaseDone:
                 continue
             return True
         return False
+
+
+class AgentInterception(BaseCallable):
+    def __call__(
+        self, agent: Particle, simulator: SimpleWorld, base: Particle, **kwargs
+    ) -> bool:
+        return any(
+            [
+                agent.name in task.names and base.name not in task.names
+                for task in simulator.get_collision_events()
+            ]
+        )
+
+
+class AgentTaskCompleteCondition(BaseCallable):
+    def __call__(self, agent: Particle, simulator: SimpleWorld, **kwargs) -> bool:
+        return any(
+            [agent.name in task.names for task in simulator.get_untasked_agents()]
+        )
+
+
+class ParticleAddedCondition(BaseCallable):
+    def __call__(self, simulator: SimpleWorld, **kwargs) -> bool:
+
+        return len(simulator.get_added_particles()) > 0
 
 
 class ZoneDefense(MultiAgentEnv):
@@ -110,8 +136,14 @@ class ZoneDefense(MultiAgentEnv):
         self._logger.setLevel(logging_level)
 
         self._done_funcs = [
-            MaxTimeExceededDone(total_episode_time),
-            EnemyEnteredBaseDone(),
+            MaxTimeExceededCondition(total_episode_time),
+            EnemyEnteredBaseCondition(),
+        ]
+
+        self._query_funcs = [
+            AgentTaskCompleteCondition(),
+            AgentInterception(),
+            ParticleAddedCondition(),
         ]
 
     @property
@@ -295,26 +327,15 @@ class ZoneDefense(MultiAgentEnv):
 
     def _time_to_query(self) -> bool:
 
-        conditions: dict = {}
+        conditions: dict = {
+            cond.__name__: cond(
+                agent=self.agent, simulator=self.simulator, base=self.base
+            )
+            for cond in self._query_funcs
+        }
 
-        conditions["agent_complete"] = any(
-            [
-                self.agent.name in task.names
-                for task in self.simulator.get_untasked_agents()
-            ]
-        )
-
-        conditions["collision"] = any(
-            [
-                self.agent.name in task.names and self.base.name not in task.names
-                for task in self.simulator.get_collision_events()
-            ]
-        )
-
-        conditions["new_enemy"] = len(self.simulator.get_added_particles()) > 0
-
-        for c in conditions:
-            if conditions[c]:
+        for c, value in conditions.items():
+            if value:
                 self._logger.debug(f"Condition {c} met")
 
         return any(conditions.values())
@@ -334,7 +355,6 @@ class ZoneDefense(MultiAgentEnv):
 
             self.simulator.remove_object(enemy_to_remove)
 
-            self._logger.info(f"{self.agent.position}")
             self._logger.info(f"removed {enemy_to_remove}")
 
     def step(self, actions: Dict) -> Tuple[Dict[str, Any], dict, float, Dict[str, Any]]:
@@ -344,8 +364,6 @@ class ZoneDefense(MultiAgentEnv):
 
         while not self._time_to_query():
             self.simulator.update()
-
-        self._remove_collided_enemies()
 
         # init output containers
         obs = self._get_observation()
@@ -359,9 +377,12 @@ class ZoneDefense(MultiAgentEnv):
             (dones.__class__.__name__, dones(self.simulator))
             for dones in self._done_funcs
         ]
-        print(done_conditions)
         dones[self.agent.name] = any([i[1] for i in done_conditions])
         dones["__all__"] = dones[self.agent.name]
+        print(done_conditions)
+
+        # clean up sim for next round
+        self._remove_collided_enemies()
 
         return obs, rewards, dones, {}
 
