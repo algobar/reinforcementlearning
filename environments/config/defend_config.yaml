@@ -1,4 +1,4 @@
-simultaneous_enemies: 2
+simultaneous_enemies: 1
 agent_speed: 2
 enemy_speed: 1
 grid_size: 20
@@ -7,3 +7,6 @@ agent_radius: 0.5
 enemy_radius: 0.5
 sim_step_size: 0.1
 total_episode_time: 120
+reward_weights:
+  AgentInterceptionReward: 1
+  EnemyEnteredBaseReward: -1

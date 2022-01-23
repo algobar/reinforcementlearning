@@ -71,6 +71,39 @@ class ParticleAddedCondition(BaseCallable):
         return len(simulator.get_added_particles()) > 0
 
 
+class AgentInterceptionReward(BaseCallable):
+    def __init__(self, weight: float, **kwargs) -> None:
+        self.weight = weight
+        self.condition = AgentInterception()
+
+    def __call__(
+        self, agent: Particle, simulator: SimpleWorld, base: Particle, **kwargs
+    ) -> float:
+
+        if self.condition(agent=agent, simulator=simulator, base=base):
+            return self.weight
+
+        return 0
+
+
+class EnemyEnteredBaseReward(BaseCallable):
+    def __init__(self, weight: float, **kwargs):
+        self.weight = weight
+        self.condition = EnemyEnteredBaseCondition()
+
+    def __call__(self, simulator: SimpleWorld, **kwargs) -> float:
+
+        if self.condition(simulator):
+            return self.weight
+
+        return 0
+
+
+def float64_array(value):
+    """Creates a float 32 array"""
+    return numpy.array([value], dtype=numpy.float64)
+
+
 class ZoneDefense(MultiAgentEnv):
     """
     Gym environment where agents must
@@ -116,8 +149,12 @@ class ZoneDefense(MultiAgentEnv):
         sim_step_size: float,
         logging_level: str = logging.DEBUG,
         total_episode_time: float = 120,
+        reward_weights: dict = None,
         **kwargs,
     ):
+
+        if reward_weights is None:
+            reward_weights = {}
 
         # how many enemies can be in the sim at once
         self.simultaneous_enemies: int = simultaneous_enemies
@@ -146,6 +183,11 @@ class ZoneDefense(MultiAgentEnv):
             ParticleAddedCondition(),
         ]
 
+        self._reward_funcs = [
+            AgentInterceptionReward(reward_weights[AgentInterceptionReward.__name__]),
+            EnemyEnteredBaseReward(reward_weights[EnemyEnteredBaseReward.__name__]),
+        ]
+
     @property
     def observation_space(self) -> spaces.Space:
         """Define the observation space as follows:
@@ -160,22 +202,34 @@ class ZoneDefense(MultiAgentEnv):
         Returns:
             spaces.Space: [description]
         """
-        distance = spaces.Box(low=numpy.array([-100]), high=numpy.array([100]))
-        zone_bearing_x = spaces.Box(low=numpy.array([-1]), high=numpy.array([1]))
+        distance = spaces.Box(
+            low=numpy.array([0]), high=numpy.array([100]), dtype=numpy.float64
+        )
+        zone_bearing_x = spaces.Box(
+            low=numpy.array([-1]), high=numpy.array([1]), dtype=numpy.float64
+        )
         zone_bearing_y = zone_bearing_x
 
-        space: dict = {
-            "agent_distance": distance,
-            "agent_bearing_x": zone_bearing_x,
-            "agent_bearing_y": zone_bearing_y,
-        }
+        speed = spaces.Box(
+            low=numpy.array([0]), high=numpy.array([10]), dtype=numpy.float64
+        )
+
+        space: dict = OrderedDict(
+            {
+                "agent_distance": distance,
+                "agent_bearing_x": zone_bearing_x,
+                "agent_bearing_y": zone_bearing_y,
+                "agent_speed": speed,
+            }
+        )
 
         for i in range(self.simultaneous_enemies):
             space[f"enemy_{i}_distance"] = distance
             space[f"enemy_{i}_bearing_x"] = zone_bearing_x
             space[f"enemy_{i}_bearing_y"] = zone_bearing_y
+            space[f"enemy_{i}_speed"] = speed
 
-        space["avail_actions"] = spaces.Discrete(self.simultaneous_enemies + 1)
+        space["action_mask"] = spaces.Box(0, 1, shape=(self.simultaneous_enemies + 1,))
 
         return spaces.Dict(space)
 
@@ -252,9 +306,10 @@ class ZoneDefense(MultiAgentEnv):
             self.agent, self.base
         )
 
-        agent_obs["agent_distance"] = distance_to_base
-        agent_obs["agent_bearing_x"] = numpy.sin(base_bearing)
-        agent_obs["agent_bearing_y"] = numpy.cos(base_bearing)
+        agent_obs["agent_distance"] = float64_array(distance_to_base)
+        agent_obs["agent_bearing_x"] = float64_array(numpy.sin(base_bearing))
+        agent_obs["agent_bearing_y"] = float64_array(numpy.cos(base_bearing))
+        agent_obs["agent_speed"] = float64_array(self.agent.speed)
 
         enemy_by_distance = self._order_enemies_by_distance()
 
@@ -263,6 +318,7 @@ class ZoneDefense(MultiAgentEnv):
             if len(enemy_by_distance) < i + 1:
                 distance = 0
                 bearing = 0
+                speed = 0
             else:
                 enemy_to_observe = self.simulator.get(enemy_by_distance[i])
                 distance = calculations.distance_between(
@@ -273,11 +329,14 @@ class ZoneDefense(MultiAgentEnv):
                     self.agent,
                     enemy_to_observe,
                 )
+                speed = enemy_to_observe.speed
 
-            agent_obs[f"enemy_{i}_distance"] = numpy.array(distance)
-            agent_obs[f"enemy_{i}_bearing_x"] = numpy.array(numpy.sin(bearing))
-            agent_obs[f"enemy_{i}_bearing_y"] = numpy.array(numpy.cos(bearing))
+            agent_obs[f"enemy_{i}_distance"] = float64_array(distance)
+            agent_obs[f"enemy_{i}_bearing_x"] = float64_array(numpy.sin(bearing))
+            agent_obs[f"enemy_{i}_bearing_y"] = float64_array(numpy.cos(bearing))
+            agent_obs[f"enemy_{i}_speed"] = float64_array(speed)
 
+        agent_obs["action_mask"] = numpy.ones(self.simultaneous_enemies + 1)
         obs[self.agent.name] = agent_obs
 
         return obs
@@ -371,7 +430,12 @@ class ZoneDefense(MultiAgentEnv):
         dones: dict = {self.agent.name: False, "__all__": False}
 
         # collecting rewards
-
+        rewards[self.agent.name] = sum(
+            [
+                reward(agent=self.agent, simulator=self.simulator, base=self.base)
+                for reward in self._reward_funcs
+            ]
+        )
         # collect dones
         done_conditions = [
             (dones.__class__.__name__, dones(self.simulator))
@@ -379,7 +443,6 @@ class ZoneDefense(MultiAgentEnv):
         ]
         dones[self.agent.name] = any([i[1] for i in done_conditions])
         dones["__all__"] = dones[self.agent.name]
-        print(done_conditions)
 
         # clean up sim for next round
         self._remove_collided_enemies()

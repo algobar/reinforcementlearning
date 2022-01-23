@@ -23,10 +23,6 @@ def test_init_gym(env_config):
         enemies = env.simulator.get_all_of_type(Types.ENEMY)
         action = random.choice(list(range(len(enemies) + 1)))
         obs, rwd, done, info = env.step({"agent": action})
-
         all_done = done["__all__"]
-
-    print(env.simulator)
-    # print(obs)
 
     assert obs
