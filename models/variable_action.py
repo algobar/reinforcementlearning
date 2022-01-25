@@ -1,9 +1,15 @@
 from typing import List, Dict, Tuple
 from ray.rllib.models.torch.fcnet import FullyConnectedNetwork
 from ray.rllib.utils.typing import ModelConfigDict
-from torch import TensorType, nn
-import gym
-import numpy as np
+from torch import TensorType
+import torch
+
+
+def mask_logits(logits: TensorType, mask: TensorType):
+    """Mask the outputs of the network to be extremely small
+    to prevent them from being chosen by the network"""
+
+    return torch.where(mask < 1, torch.tensor(-1e8), logits)
 
 
 class VariableActionModel(FullyConnectedNetwork):
@@ -16,7 +22,8 @@ class VariableActionModel(FullyConnectedNetwork):
 
         output, state = super().forward(input_dict, state, seq_lens)
 
-        # mask the action outputs]
-        mask = None
+        mask = input_dict["obs"]["action_mask"]
 
-        return output, state
+        masked_output = mask_logits(output, mask)
+
+        return masked_output, state

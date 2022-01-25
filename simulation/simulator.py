@@ -46,6 +46,8 @@ class SimpleWorld:
 
         self.objects.clear()
         self.scripts.clear()
+        self.type_counter.clear()
+        self._added_particles.clear()
         self.time = 0
 
     def get_all_of_type(self, type: Types):

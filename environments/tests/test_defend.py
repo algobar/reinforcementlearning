@@ -24,5 +24,4 @@ def test_init_gym(env_config):
         action = random.choice(list(range(len(enemies) + 1)))
         obs, rwd, done, info = env.step({"agent": action})
         all_done = done["__all__"]
-
     assert obs

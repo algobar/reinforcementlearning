@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 import logging
 from typing import Any, Dict, List, OrderedDict, Tuple
 from gym import spaces
@@ -14,12 +14,210 @@ from simulation.scripts import CreateEntityInterval, Script
 from simulation import calculations
 
 
+BOX_LOW: float = -5
+BOX_HIGH: float = 5
+DEFAULT_INVALID: float = -2
+
+
+def float64_array(value):
+    """Creates a float 32 array"""
+    return numpy.array([value], dtype=numpy.float64)
+
+
+def order_enemies_by_distance(simulator: SimpleWorld, poi: Particle) -> List:
+
+    enemy_distance = [
+        (
+            enemy,
+            calculations.distance_between(simulator.get(enemy), poi),
+        )
+        for enemy in simulator.get_all_of_type(Types.ENEMY)
+    ]
+
+    sorted_enemies_by_distance = sorted(enemy_distance, key=lambda x: x[1])
+
+    return [enemy[0] for enemy in sorted_enemies_by_distance]
+
+
 class BaseCallable(ABC):
     def __init__(self, **kwargs) -> None:
         self.__name__ = self.__class__.__name__
 
     def __call__(self, **kwargs) -> Any:
         ...
+
+
+class Modifier(BaseCallable):
+    """Modify observations"""
+
+    ...
+
+
+class NormalizeBox(Modifier):
+    @staticmethod
+    def normalize_box(
+        value: float,
+        low: float,
+        high: float,
+        norm_low: float = -1.0,
+        norm_high: float = 1.0,
+    ):
+        """Bound the given value given a box between specified low and high"""
+        return numpy.interp(
+            value,
+            [low, high],
+            [norm_low, norm_high],
+        )
+
+    def __call__(self, value: float, low: float, high: float, **kwargs) -> Any:
+        return self.normalize_box(value, low, high)
+
+
+class Observation(BaseCallable):
+    def __init__(
+        self, low: float, high: float, modifier: Modifier = None, **kwargs
+    ) -> None:
+
+        self.low = low
+        self.high = high
+        self.modifier = modifier
+        super().__init__(**kwargs)
+
+    def modify(self, value):
+        """Modify the value if the modifier exists"""
+        if not self.modifier:
+            return value
+
+        return self.modifier(value, self.low, self.high)
+
+    @abstractmethod
+    def space(self) -> spaces.Space:
+        ...
+
+
+class DistanceToPoint(Observation):
+    def __init__(
+        self,
+        low: float = 0,
+        high: float = 30,
+        modifier: Modifier = None,
+        **kwargs,
+    ) -> None:
+        super().__init__(low, high, modifier, **kwargs)
+
+    def space(self) -> spaces.Box:
+
+        return spaces.Box(
+            low=numpy.array([BOX_LOW]),
+            high=numpy.array([BOX_HIGH]),
+            dtype=numpy.float64,
+        )
+
+    def __call__(
+        self, name: str, other: str, simulator: SimpleWorld, **kwargs
+    ) -> numpy.array:
+
+        if name is None:
+            return float64_array(DEFAULT_INVALID)
+
+        distance = calculations.distance_between(
+            simulator.get(name), simulator.get(other)
+        )
+
+        return float64_array(self.modifier(distance, self.low, self.high))
+
+
+class AbsoluteBearing(Observation):
+    def __init__(
+        self,
+        low: float = -1,
+        high: float = 1,
+        modifier: Modifier = None,
+        **kwargs,
+    ) -> None:
+        super().__init__(low, high, modifier, **kwargs)
+
+    def space(self) -> spaces.Box:
+
+        return spaces.Box(
+            low=numpy.array([BOX_LOW] * 2),
+            high=numpy.array([BOX_HIGH] * 2),
+            dtype=numpy.float64,
+        )
+
+    def __call__(
+        self, name: str, other: str, simulator: SimpleWorld, **kwargs
+    ) -> Any:
+
+        if name is None:
+            return numpy.array([DEFAULT_INVALID] * 2, numpy.float64)
+
+        abs_bearing: float = calculations.absolute_bearing_between(
+            simulator.get(name), simulator.get(other)
+        )
+
+        sin = numpy.sin(abs_bearing)
+        cos = numpy.cos(abs_bearing)
+
+        return numpy.array([cos, sin], numpy.float64)
+
+
+class Speed(Observation):
+    def __init__(
+        self,
+        low: float = 0,
+        high: float = 30,
+        modifier: Modifier = None,
+        **kwargs,
+    ) -> None:
+        super().__init__(low, high, modifier, **kwargs)
+
+    def space(self) -> spaces.Box:
+
+        return spaces.Box(
+            low=numpy.array([BOX_LOW]),
+            high=numpy.array([BOX_HIGH]),
+            dtype=numpy.float64,
+        )
+
+    def __call__(self, name: str, simulator: SimpleWorld, **kwargs) -> Any:
+
+        if name is None:
+            return float64_array(DEFAULT_INVALID)
+
+        speed: float = simulator.get(name).speed
+
+        return float64_array(self.modify(speed))
+
+
+class ValidActions(Observation):
+    def __init__(self, fixed: int, variable: int, **kwargs) -> None:
+
+        self.fixed_actions = fixed
+        self.variable_actions = variable
+
+    def space(self) -> spaces.Space:
+        return spaces.Box(
+            low=numpy.array(
+                [0] * (self.fixed_actions + self.variable_actions)
+            ),
+            high=numpy.array(
+                [1] * (self.fixed_actions + self.variable_actions)
+            ),
+            dtype=numpy.float64,
+        )
+
+    def __call__(self, variable_list: List, **kwargs) -> Any:
+
+        output = [1] * self.fixed_actions
+
+        assert (
+            len(variable_list) == self.variable_actions
+        ), f"{len(variable_list)}, {self.variable_actions}"
+
+        output.extend([1 if i is not None else 0 for i in variable_list])
+
+        return numpy.array(output, dtype=numpy.float64)
 
 
 class MaxTimeExceededCondition(BaseCallable):
@@ -59,9 +257,14 @@ class AgentInterception(BaseCallable):
 
 
 class AgentTaskCompleteCondition(BaseCallable):
-    def __call__(self, agent: Particle, simulator: SimpleWorld, **kwargs) -> bool:
+    def __call__(
+        self, agent: Particle, simulator: SimpleWorld, **kwargs
+    ) -> bool:
         return any(
-            [agent.name in task.names for task in simulator.get_untasked_agents()]
+            [
+                agent.name in task.names
+                for task in simulator.get_untasked_agents()
+            ]
         )
 
 
@@ -97,11 +300,6 @@ class EnemyEnteredBaseReward(BaseCallable):
             return self.weight
 
         return 0
-
-
-def float64_array(value):
-    """Creates a float 32 array"""
-    return numpy.array([value], dtype=numpy.float64)
 
 
 class ZoneDefense(MultiAgentEnv):
@@ -184,54 +382,46 @@ class ZoneDefense(MultiAgentEnv):
         ]
 
         self._reward_funcs = [
-            AgentInterceptionReward(reward_weights[AgentInterceptionReward.__name__]),
-            EnemyEnteredBaseReward(reward_weights[EnemyEnteredBaseReward.__name__]),
+            AgentInterceptionReward(
+                reward_weights[AgentInterceptionReward.__name__]
+            ),
+            EnemyEnteredBaseReward(
+                reward_weights[EnemyEnteredBaseReward.__name__]
+            ),
         ]
+
+        self._observations: OrderedDict = self._build_observation_space(
+            **kwargs
+        )
+
+    def _build_observation_space(self, **kwargs):
+
+        obs: OrderedDict = OrderedDict()
+        obs["agent_distance"] = DistanceToPoint(modifier=NormalizeBox())
+        obs["agent_bearing"] = AbsoluteBearing()
+        obs["agent_speed"] = Speed(modifier=NormalizeBox())
+
+        for i in range(self.simultaneous_enemies):
+            obs[f"enemy_{i}_distance"] = DistanceToPoint(
+                modifier=NormalizeBox()
+            )
+            obs[f"enemy_{i}_bearing"] = AbsoluteBearing()
+            obs[f"enemy_{i}_speed"] = Speed(modifier=NormalizeBox())
+
+        obs["action_mask"] = ValidActions(
+            fixed=1, variable=self.simultaneous_enemies
+        )
+
+        return obs
 
     @property
     def observation_space(self) -> spaces.Space:
-        """Define the observation space as follows:
 
-        - Distance to zone
-        - True bearing to zone
-        - For each enemy (up to max):
-           - Distance to zone
-           - True bearing to zone
-
-
-        Returns:
-            spaces.Space: [description]
-        """
-        distance = spaces.Box(
-            low=numpy.array([0]), high=numpy.array([100]), dtype=numpy.float64
+        return spaces.Dict(
+            OrderedDict(
+                {key: obs.space() for key, obs in self._observations.items()}
+            )
         )
-        zone_bearing_x = spaces.Box(
-            low=numpy.array([-1]), high=numpy.array([1]), dtype=numpy.float64
-        )
-        zone_bearing_y = zone_bearing_x
-
-        speed = spaces.Box(
-            low=numpy.array([0]), high=numpy.array([10]), dtype=numpy.float64
-        )
-
-        space: dict = OrderedDict(
-            {
-                "agent_distance": distance,
-                "agent_bearing_x": zone_bearing_x,
-                "agent_bearing_y": zone_bearing_y,
-                "agent_speed": speed,
-            }
-        )
-
-        for i in range(self.simultaneous_enemies):
-            space[f"enemy_{i}_distance"] = distance
-            space[f"enemy_{i}_bearing_x"] = zone_bearing_x
-            space[f"enemy_{i}_bearing_y"] = zone_bearing_y
-            space[f"enemy_{i}_speed"] = speed
-
-        space["action_mask"] = spaces.Box(0, 1, shape=(self.simultaneous_enemies + 1,))
-
-        return spaces.Dict(space)
 
     @property
     def action_space(self) -> spaces.Space:
@@ -246,7 +436,9 @@ class ZoneDefense(MultiAgentEnv):
         self.simulator.reset()
 
         # create the central base that enemies try to get to
-        self.base = self.simulator.create_particle(name="base", type=Types.BASE)
+        self.base = self.simulator.create_particle(
+            name="base", type=Types.BASE
+        )
         self.base.set_position(0, 0, 0)
         self.base.set_radius(self.base_radius)
 
@@ -273,73 +465,56 @@ class ZoneDefense(MultiAgentEnv):
         self.simulator.add_script(enemy_script)
 
         # create agent(s)
-        self.agent = self.simulator.create_particle(name="agent", type=Types.AGENT)
+        self.agent = self.simulator.create_particle(
+            name="agent", type=Types.AGENT
+        )
         self.agent.set_position(0, 0, 0)
         self.agent.set_radius(self.agent_radius)
 
         return self._get_observation()
 
-    def _order_enemies_by_distance(self) -> List:
-
-        enemy_distance = [
-            (
-                enemy,
-                calculations.distance_between(self.simulator.get(enemy), self.base),
-            )
-            for enemy in self.simulator.get_all_of_type(Types.ENEMY)
-        ]
-
-        sorted_enemies_by_distance = sorted(enemy_distance, key=lambda x: x[1])
-
-        return [enemy[0] for enemy in sorted_enemies_by_distance]
-
     def _get_observation(self) -> dict:
 
-        obs: dict = {self.agent.name: None}
-
-        # collect obs for now
         agent_obs = OrderedDict()
 
-        distance_to_base = calculations.distance_between(self.agent, self.base)
+        obs_def = self._observations
 
-        base_bearing: float = calculations.absolute_bearing_between(
-            self.agent, self.base
+        agent_obs["agent_distance"] = obs_def["agent_distance"](
+            name=self.agent.name,
+            other=self.base.name,
+            simulator=self.simulator,
+        )
+        agent_obs["agent_bearing"] = obs_def["agent_bearing"](
+            name=self.agent.name,
+            other=self.base.name,
+            simulator=self.simulator,
+        )
+        agent_obs["agent_speed"] = obs_def["agent_speed"](
+            name=self.agent.name,
+            other=self.base.name,
+            simulator=self.simulator,
         )
 
-        agent_obs["agent_distance"] = float64_array(distance_to_base)
-        agent_obs["agent_bearing_x"] = float64_array(numpy.sin(base_bearing))
-        agent_obs["agent_bearing_y"] = float64_array(numpy.cos(base_bearing))
-        agent_obs["agent_speed"] = float64_array(self.agent.speed)
+        enemies = order_enemies_by_distance(self.simulator, self.base)
+        enemies_padded = enemies + [None] * (
+            self.simultaneous_enemies - len(enemies)
+        )
 
-        enemy_by_distance = self._order_enemies_by_distance()
+        for i, name in enumerate(enemies_padded):
 
-        for i in range(self.simultaneous_enemies):
+            agent_obs[f"enemy_{i}_distance"] = obs_def[f"enemy_{i}_distance"](
+                name=name, other=self.base.name, simulator=self.simulator
+            )
+            agent_obs[f"enemy_{i}_bearing"] = obs_def[f"enemy_{i}_bearing"](
+                name=name, other=self.base.name, simulator=self.simulator
+            )
+            agent_obs[f"enemy_{i}_speed"] = obs_def[f"enemy_{i}_speed"](
+                name=name, other=self.base.name, simulator=self.simulator
+            )
 
-            if len(enemy_by_distance) < i + 1:
-                distance = 0
-                bearing = 0
-                speed = 0
-            else:
-                enemy_to_observe = self.simulator.get(enemy_by_distance[i])
-                distance = calculations.distance_between(
-                    self.agent,
-                    enemy_to_observe,
-                )
-                bearing = calculations.absolute_bearing_between(
-                    self.agent,
-                    enemy_to_observe,
-                )
-                speed = enemy_to_observe.speed
+        agent_obs["action_mask"] = obs_def["action_mask"](enemies_padded)
 
-            agent_obs[f"enemy_{i}_distance"] = float64_array(distance)
-            agent_obs[f"enemy_{i}_bearing_x"] = float64_array(numpy.sin(bearing))
-            agent_obs[f"enemy_{i}_bearing_y"] = float64_array(numpy.cos(bearing))
-            agent_obs[f"enemy_{i}_speed"] = float64_array(speed)
-
-        agent_obs["action_mask"] = numpy.ones(self.simultaneous_enemies + 1)
-        obs[self.agent.name] = agent_obs
-
-        return obs
+        return {self.agent.name: agent_obs}
 
     def _implement_actions(self, actions: Dict) -> None:
 
@@ -363,7 +538,9 @@ class ZoneDefense(MultiAgentEnv):
 
                 continue
 
-            enemies: List = self._order_enemies_by_distance()
+            enemies: List = order_enemies_by_distance(
+                self.simulator, self.base
+            )
 
             # subtract one b/c of go to base as 0
             target = enemies[actions[name] - 1]
@@ -416,7 +593,9 @@ class ZoneDefense(MultiAgentEnv):
 
             self._logger.info(f"removed {enemy_to_remove}")
 
-    def step(self, actions: Dict) -> Tuple[Dict[str, Any], dict, float, Dict[str, Any]]:
+    def step(
+        self, actions: Dict
+    ) -> Tuple[Dict[str, Any], dict, float, Dict[str, Any]]:
 
         self._implement_actions(actions)
         self.simulator.update()
@@ -424,15 +603,15 @@ class ZoneDefense(MultiAgentEnv):
         while not self._time_to_query():
             self.simulator.update()
 
-        # init output containers
-        obs = self._get_observation()
         rewards: dict = {self.agent.name: 0}
         dones: dict = {self.agent.name: False, "__all__": False}
 
         # collecting rewards
         rewards[self.agent.name] = sum(
             [
-                reward(agent=self.agent, simulator=self.simulator, base=self.base)
+                reward(
+                    agent=self.agent, simulator=self.simulator, base=self.base
+                )
                 for reward in self._reward_funcs
             ]
         )
@@ -447,7 +626,7 @@ class ZoneDefense(MultiAgentEnv):
         # clean up sim for next round
         self._remove_collided_enemies()
 
-        return obs, rewards, dones, {}
+        return self._get_observation(), rewards, dones, {}
 
     def render(self):
 

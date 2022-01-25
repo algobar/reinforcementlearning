@@ -20,8 +20,9 @@ def train(env_config: dict):
         config={
             "env_config": env_config,
             "framework": "torch",
-            "observation_filter": "MeanStdFilter",
-            "model": {"custom_model": "VariableActionModel", "custom_model_config": {}},
+            "observation_filter": "NoFilter",
+            "num_workers": 0,
+            "model": {"custom_model": "VariableActionModel"},
         },
     )
     for i in range(10):
