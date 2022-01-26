@@ -1,10 +1,12 @@
-from operator import mod
 import ray
 import os
 import yaml
 import datetime
+import time
+import math
 import argparse
 import importlib
+import models
 
 from ray.rllib.agents.ppo import PPOTrainer
 
@@ -22,7 +24,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_yaml(path: str) -> dict:
+def load_yaml_from_file(path: str) -> dict:
     """Load the yaml file given the path
 
     :param path: path to yaml file
@@ -37,11 +39,17 @@ def load_yaml(path: str) -> dict:
     return config
 
 
-def import_class(path: str):
+def import_class(path: str) -> type:
+    """Returns the class definition given the path to class
 
-    module, class_name = path.rsplit(".", 1)
+    :param path: path to class in form "a.b.class"
+    :type path: str
+    :return: the class definition (not initialized)
+    :rtype: [type]
+    """
+    module_path, class_name = path.rsplit(".", 1)
 
-    return importlib.import_module(module, class_name)
+    return getattr(importlib.import_module(module_path), class_name)
 
 
 def create_save_path(directory: str) -> str:
@@ -53,10 +61,9 @@ def create_save_path(directory: str) -> str:
     :rtype: str
     """
 
-    day = datetime.date()
-    time = day.timetuple()
-    formatted_day = f"{day.year}-{day.month}-{day.day}-\
-        {time.tm_hour}{time.tm_min}{time.tm_sec}"
+    day = datetime.date.today()
+    time_now = math.floor(time.time())
+    formatted_day = f"{day.year}-{day.month}-{day.day}-{time_now}"
 
     full_path: str = os.path.join(directory, formatted_day)
 
@@ -65,7 +72,7 @@ def create_save_path(directory: str) -> str:
     return full_path
 
 
-def train(train_config: dict, env_config: dict, save_path: str):
+def train(train_config: dict, env_config: dict):
 
     env_def = import_class(env_config.pop(ENV_ENTRY))
 
@@ -80,17 +87,17 @@ def train(train_config: dict, env_config: dict, save_path: str):
     for _ in range(10):
 
         print(trainer.train())
-        trainer.save(save_path)
+        trainer.save()
 
 
 if __name__ == "__main__":
 
     args = parse_args()
 
-    save_path = create_save_path(args.save)
+    env_yaml = load_yaml_from_file(args.env_config)
+    train_yaml = load_yaml_from_file(args.train_config)
 
     train(
-        env_config=args.env_config,
-        train_config=args.train_config,
-        save_path=save_path,
+        env_config=env_yaml,
+        train_config=train_yaml,
     )
