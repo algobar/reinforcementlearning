@@ -1,3 +1,4 @@
+env: environments.defend.ZoneDefense
 simultaneous_enemies: 2
 agent_speed: 2
 enemy_speed: 1

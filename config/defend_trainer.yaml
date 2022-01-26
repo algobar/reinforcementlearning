@@ -1,0 +1,5 @@
+framework: torch
+observation_filter: NoFilter
+num_workers: 0
+model: 
+  custom_model: VariableActionModel
