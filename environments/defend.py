@@ -6,6 +6,7 @@ import numpy
 from environments.conditions import (
     AgentInterception,
     AgentTaskCompleteCondition,
+    ConditionCollector,
     EnemyEnteredBaseCondition,
     MaxTimeExceededCondition,
     ParticleAddedCondition,
@@ -16,7 +17,11 @@ from environments.observations import (
     Speed,
     ValidActions,
 )
-from environments.reward import AgentInterceptionReward, EnemyEnteredBaseReward
+from environments.reward import (
+    AgentInterceptionReward,
+    EnemyEnteredBaseReward,
+    RewardCollector,
+)
 from simulation.simulator import SimpleWorld
 from simulation.behaviors import GoToPoint2D, RemainInLocationSeconds
 from simulation.particles import (
@@ -112,25 +117,26 @@ class ZoneDefense(MultiAgentEnv):
         # configure the logger
         self._logger.setLevel(logging_level)
 
-        self._done_funcs = [
-            MaxTimeExceededCondition(total_episode_time),
-            EnemyEnteredBaseCondition(),
-        ]
+        self._done_funcs = ConditionCollector()
+        self._done_funcs.append(MaxTimeExceededCondition(total_episode_time))
+        self._done_funcs.append(EnemyEnteredBaseCondition())
 
-        self._query_funcs = [
-            AgentTaskCompleteCondition(),
-            AgentInterception(),
-            ParticleAddedCondition(),
-        ]
+        self._query_funcs = ConditionCollector()
+        self._query_funcs.append(AgentTaskCompleteCondition())
+        self._query_funcs.append(AgentInterception())
+        self._query_funcs.append(ParticleAddedCondition())
 
-        self._reward_funcs = [
+        self._reward_funcs = RewardCollector()
+        self._reward_funcs.append(
             AgentInterceptionReward(
                 reward_weights[AgentInterceptionReward.__name__]
-            ),
+            )
+        )
+        self._reward_funcs.append(
             EnemyEnteredBaseReward(
                 reward_weights[EnemyEnteredBaseReward.__name__]
-            ),
-        ]
+            )
+        )
 
         self._observations: OrderedDict = self._build_observation_space(
             **kwargs
@@ -305,18 +311,11 @@ class ZoneDefense(MultiAgentEnv):
 
     def _time_to_query(self) -> bool:
 
-        conditions: dict = {
-            cond.__name__: cond(
-                agent=self.agent, simulator=self.simulator, base=self.base
-            )
-            for cond in self._query_funcs
-        }
+        should_query, cond = self._query_funcs(
+            agent=self.agent, simulator=self.simulator, base=self.base
+        )
 
-        for c, value in conditions.items():
-            if value:
-                self._logger.debug(f"Condition {c} met")
-
-        return any(conditions.values())
+        return should_query
 
     def _remove_collided_enemies(self):
 
@@ -349,20 +348,21 @@ class ZoneDefense(MultiAgentEnv):
         dones: dict = {self.agent.name: False, "__all__": False}
 
         # collecting rewards
-        rewards[self.agent.name] = sum(
-            [
-                reward(
-                    agent=self.agent, simulator=self.simulator, base=self.base
-                )
-                for reward in self._reward_funcs
-            ]
+        rwd, _ = self._reward_funcs(
+            agent=self.agent,
+            base=self.base,
+            simulator=self.simulator
         )
+        rewards[self.agent.name] = rwd 
+
         # collect dones
-        done_conditions = [
-            (dones.__class__.__name__, dones(self.simulator))
-            for dones in self._done_funcs
-        ]
-        dones[self.agent.name] = any([i[1] for i in done_conditions])
+        done, _ = self._done_funcs(
+            agent=self.agent,
+            base=self.base,
+            simulator=self.simulator
+        )
+
+        dones[self.agent.name] = done
         dones["__all__"] = dones[self.agent.name]
 
         # clean up sim for next round

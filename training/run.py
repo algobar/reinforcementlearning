@@ -2,7 +2,7 @@ import ray
 import os
 import argparse
 import utils
-
+import models
 from ray.rllib.agents.ppo import PPOTrainer
 
 ENVIRONMENT_CONFIG: str = "env_config"
