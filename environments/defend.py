@@ -1,10 +1,22 @@
-from abc import ABC, abstractmethod
 import logging
 from typing import Any, Dict, List, OrderedDict, Tuple
-from attr import has
 from gym import spaces
 from ray.rllib.env import MultiAgentEnv
 import numpy
+from environments.conditions import (
+    AgentInterception,
+    AgentTaskCompleteCondition,
+    EnemyEnteredBaseCondition,
+    MaxTimeExceededCondition,
+    ParticleAddedCondition,
+)
+from environments.observations import (
+    AbsoluteBearing,
+    DistanceToPoint,
+    Speed,
+    ValidActions,
+)
+from environments.reward import AgentInterceptionReward, EnemyEnteredBaseReward
 from simulation.simulator import SimpleWorld
 from simulation.behaviors import GoToPoint2D, RemainInLocationSeconds
 from simulation.particles import (
@@ -14,15 +26,7 @@ from simulation.particles import (
 from simulation.scripts import CreateEntityInterval, Script
 from simulation import calculations
 
-
-BOX_LOW: float = -5
-BOX_HIGH: float = 5
-DEFAULT_INVALID: float = -2
-
-
-def float64_array(value):
-    """Creates a float 32 array"""
-    return numpy.array([value], dtype=numpy.float64)
+from .modifier import NormalizeBox
 
 
 def order_enemies_by_distance(simulator: SimpleWorld, poi: Particle) -> List:
@@ -38,269 +42,6 @@ def order_enemies_by_distance(simulator: SimpleWorld, poi: Particle) -> List:
     sorted_enemies_by_distance = sorted(enemy_distance, key=lambda x: x[1])
 
     return [enemy[0] for enemy in sorted_enemies_by_distance]
-
-
-class BaseCallable(ABC):
-    def __init__(self, **kwargs) -> None:
-        self.__name__ = self.__class__.__name__
-
-    def __call__(self, **kwargs) -> Any:
-        ...
-
-
-class Modifier(BaseCallable):
-    """Modify observations"""
-
-    ...
-
-
-class NormalizeBox(Modifier):
-    @staticmethod
-    def normalize_box(
-        value: float,
-        low: float,
-        high: float,
-        norm_low: float = -1.0,
-        norm_high: float = 1.0,
-    ):
-        """Bound the given value given a box between specified low and high"""
-        return numpy.interp(
-            value,
-            [low, high],
-            [norm_low, norm_high],
-        )
-
-    def __call__(self, value: float, low: float, high: float, **kwargs) -> Any:
-        return self.normalize_box(value, low, high)
-
-
-class Observation(BaseCallable):
-    def __init__(
-        self, low: float, high: float, modifier: Modifier = None, **kwargs
-    ) -> None:
-
-        self.low = low
-        self.high = high
-        self.modifier = modifier
-        super().__init__(**kwargs)
-
-    def modify(self, value):
-        """Modify the value if the modifier exists"""
-        if not self.modifier:
-            return value
-
-        return self.modifier(value, self.low, self.high)
-
-    @abstractmethod
-    def space(self) -> spaces.Space:
-        ...
-
-
-class DistanceToPoint(Observation):
-    def __init__(
-        self,
-        low: float = 0,
-        high: float = 30,
-        modifier: Modifier = None,
-        **kwargs,
-    ) -> None:
-        super().__init__(low, high, modifier, **kwargs)
-
-    def space(self) -> spaces.Box:
-
-        return spaces.Box(
-            low=numpy.array([BOX_LOW]),
-            high=numpy.array([BOX_HIGH]),
-            dtype=numpy.float64,
-        )
-
-    def __call__(
-        self, name: str, other: str, simulator: SimpleWorld, **kwargs
-    ) -> numpy.array:
-
-        if name is None:
-            return float64_array(DEFAULT_INVALID)
-
-        distance = calculations.distance_between(
-            simulator.get(name), simulator.get(other)
-        )
-
-        return float64_array(self.modifier(distance, self.low, self.high))
-
-
-class AbsoluteBearing(Observation):
-    def __init__(
-        self,
-        low: float = -1,
-        high: float = 1,
-        modifier: Modifier = None,
-        **kwargs,
-    ) -> None:
-        super().__init__(low, high, modifier, **kwargs)
-
-    def space(self) -> spaces.Box:
-
-        return spaces.Box(
-            low=numpy.array([BOX_LOW] * 2),
-            high=numpy.array([BOX_HIGH] * 2),
-            dtype=numpy.float64,
-        )
-
-    def __call__(
-        self, name: str, other: str, simulator: SimpleWorld, **kwargs
-    ) -> Any:
-
-        if name is None:
-            return numpy.array([DEFAULT_INVALID] * 2, numpy.float64)
-
-        abs_bearing: float = calculations.absolute_bearing_between(
-            simulator.get(name), simulator.get(other)
-        )
-
-        sin = numpy.sin(abs_bearing)
-        cos = numpy.cos(abs_bearing)
-
-        return numpy.array([cos, sin], numpy.float64)
-
-
-class Speed(Observation):
-    def __init__(
-        self,
-        low: float = 0,
-        high: float = 30,
-        modifier: Modifier = None,
-        **kwargs,
-    ) -> None:
-        super().__init__(low, high, modifier, **kwargs)
-
-    def space(self) -> spaces.Box:
-
-        return spaces.Box(
-            low=numpy.array([BOX_LOW]),
-            high=numpy.array([BOX_HIGH]),
-            dtype=numpy.float64,
-        )
-
-    def __call__(self, name: str, simulator: SimpleWorld, **kwargs) -> Any:
-
-        if name is None:
-            return float64_array(DEFAULT_INVALID)
-
-        speed: float = simulator.get(name).speed
-
-        return float64_array(self.modify(speed))
-
-
-class ValidActions(Observation):
-    def __init__(self, fixed: int, variable: int, **kwargs) -> None:
-
-        self.fixed_actions = fixed
-        self.variable_actions = variable
-
-    def space(self) -> spaces.Space:
-        return spaces.Box(
-            low=numpy.array(
-                [0] * (self.fixed_actions + self.variable_actions)
-            ),
-            high=numpy.array(
-                [1] * (self.fixed_actions + self.variable_actions)
-            ),
-            dtype=numpy.float64,
-        )
-
-    def __call__(self, variable_list: List, **kwargs) -> Any:
-
-        output = [1] * self.fixed_actions
-
-        assert (
-            len(variable_list) == self.variable_actions
-        ), f"{len(variable_list)}, {self.variable_actions}"
-
-        output.extend([1 if i is not None else 0 for i in variable_list])
-
-        return numpy.array(output, dtype=numpy.float64)
-
-
-class MaxTimeExceededCondition(BaseCallable):
-    def __init__(self, max_time: float, **kwargs) -> None:
-        self.max_time = max_time
-        super().__init__()
-
-    def __call__(self, simulator: SimpleWorld, **kwargs) -> bool:
-        if simulator.time >= self.max_time:
-            return True
-        return False
-
-
-class EnemyEnteredBaseCondition(BaseCallable):
-    def __call__(self, simulator: SimpleWorld) -> bool:
-        agent = simulator.get_all_of_type(Types.AGENT)[0]
-
-        for coll in simulator.get_collision_events():
-            if "base" not in coll.names:
-                continue
-            elif agent in coll.names:
-                continue
-            return True
-        return False
-
-
-class AgentInterception(BaseCallable):
-    def __call__(
-        self, agent: Particle, simulator: SimpleWorld, base: Particle, **kwargs
-    ) -> bool:
-        return any(
-            [
-                agent.name in task.names and base.name not in task.names
-                for task in simulator.get_collision_events()
-            ]
-        )
-
-
-class AgentTaskCompleteCondition(BaseCallable):
-    def __call__(
-        self, agent: Particle, simulator: SimpleWorld, **kwargs
-    ) -> bool:
-        return any(
-            [
-                agent.name in task.names
-                for task in simulator.get_untasked_agents()
-            ]
-        )
-
-
-class ParticleAddedCondition(BaseCallable):
-    def __call__(self, simulator: SimpleWorld, **kwargs) -> bool:
-
-        return len(simulator.get_added_particles()) > 0
-
-
-class AgentInterceptionReward(BaseCallable):
-    def __init__(self, weight: float, **kwargs) -> None:
-        self.weight = weight
-        self.condition = AgentInterception()
-
-    def __call__(
-        self, agent: Particle, simulator: SimpleWorld, base: Particle, **kwargs
-    ) -> float:
-
-        if self.condition(agent=agent, simulator=simulator, base=base):
-            return self.weight
-
-        return 0
-
-
-class EnemyEnteredBaseReward(BaseCallable):
-    def __init__(self, weight: float, **kwargs):
-        self.weight = weight
-        self.condition = EnemyEnteredBaseCondition()
-
-    def __call__(self, simulator: SimpleWorld, **kwargs) -> float:
-
-        if self.condition(simulator):
-            return self.weight
-
-        return 0
 
 
 class ZoneDefense(MultiAgentEnv):
@@ -633,7 +374,7 @@ class ZoneDefense(MultiAgentEnv):
 
         from gym.envs.classic_control import rendering
 
-        if self._display is None:
+        if getattr(self, "_display") is None:
             self._display = rendering.Viewer(self.grid_size, self.grid_size)
 
             self.base_render = rendering.make_circle(radius=self.base.radius)
