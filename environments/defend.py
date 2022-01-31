@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import logging
 from typing import Any, Dict, List, OrderedDict, Tuple
+from attr import has
 from gym import spaces
 from ray.rllib.env import MultiAgentEnv
 import numpy
@@ -630,4 +631,21 @@ class ZoneDefense(MultiAgentEnv):
 
     def render(self):
 
-        ...
+        from gym.envs.classic_control import rendering
+
+        if self._display is None:
+            self._display = rendering.Viewer(self.grid_size, self.grid_size)
+
+            self.base_render = rendering.make_circle(radius=self.base.radius)
+            base_trans = rendering.Transform()
+            self.base_render.add_attr(base_trans)
+
+            self._display.add_geom(self.base_render)
+
+            self.agent_render = rendering.make_circle(radius=self.agent.radius)
+            agent_trans = rendering.Transform()
+            self.agent_render.add_attr(agent_trans)
+
+            self._display.add_geom(self.agent_render)
+
+        return self._display.render(True)
