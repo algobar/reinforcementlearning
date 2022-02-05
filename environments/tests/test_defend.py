@@ -5,14 +5,15 @@ from environments.defend import ZoneDefense
 from simulation.particles import Types
 
 
-@pytest.fixture(params=["environments/config/defend_config.yaml"])
+@pytest.fixture(params=["config/defend_env.yaml"])
 def env_config(request):
-
+    """Returns the environment config"""
     with open(request.param) as f:
         return yaml.load(f, yaml.SafeLoader)
 
 
 def test_init_gym(env_config):
+    """Test that we can initialize the gym correctly"""
 
     env = ZoneDefense(env_config)
     obs = env.reset()
@@ -21,7 +22,8 @@ def test_init_gym(env_config):
     while not all_done:
 
         enemies = env.simulator.get_all_of_type(Types.ENEMY)
-        action = random.choice(list(range(len(enemies) + 1)))
-        obs, rwd, done, info = env.step({"agent": action})
+        get_action = lambda: random.choice(list(range(len(enemies) + 1)))
+        actions = {a: get_action() for a in obs}
+        obs, rwd, done, info = env.step(actions)
         all_done = done["__all__"]
     assert obs

@@ -35,7 +35,15 @@ from .modifier import NormalizeBox
 
 
 def order_enemies_by_distance(simulator: SimpleWorld, poi: Particle) -> List:
+    """Orders the enemies by distance to the given particle
 
+    :param simulator: [description]
+    :type simulator: SimpleWorld
+    :param poi: [description]
+    :type poi: Particle
+    :return: [description]
+    :rtype: List
+    """
     enemy_distance = [
         (
             enemy,
@@ -84,6 +92,7 @@ class ZoneDefense(MultiAgentEnv):
 
     def _setup_init(
         self,
+        number_agents: int,
         simultaneous_enemies: int,
         enemy_speed: float,
         agent_speed: float,
@@ -101,7 +110,8 @@ class ZoneDefense(MultiAgentEnv):
         if reward_weights is None:
             reward_weights = {}
 
-        # how many enemies can be in the sim at once
+        self.number_agents = number_agents
+
         self.simultaneous_enemies: int = simultaneous_enemies
         # total enemies to spawn over an episode (seconds)
         self.enemy_speed: float = enemy_speed
@@ -145,9 +155,14 @@ class ZoneDefense(MultiAgentEnv):
     def _build_observation_space(self, **kwargs):
 
         obs: OrderedDict = OrderedDict()
-        obs["agent_distance"] = DistanceToPoint(modifier=NormalizeBox())
-        obs["agent_bearing"] = AbsoluteBearing()
-        obs["agent_speed"] = Speed(modifier=NormalizeBox())
+
+        for i in range(self.number_agents):
+
+            obs[f"agent_{i}_distance"] = DistanceToPoint(
+                modifier=NormalizeBox()
+            )
+            obs[f"agent_{i}_bearing"] = AbsoluteBearing()
+            obs[f"agent_{i}_speed"] = Speed(modifier=NormalizeBox())
 
         for i in range(self.simultaneous_enemies):
             obs[f"enemy_{i}_distance"] = DistanceToPoint(
@@ -164,7 +179,7 @@ class ZoneDefense(MultiAgentEnv):
 
     @property
     def observation_space(self) -> spaces.Space:
-
+        """Returns the observation space"""
         return spaces.Dict(
             OrderedDict(
                 {key: obs.space() for key, obs in self._observations.items()}
@@ -173,13 +188,13 @@ class ZoneDefense(MultiAgentEnv):
 
     @property
     def action_space(self) -> spaces.Space:
-
+        """Defines the action space"""
         # index 0 = remain at base
         # index 1 - (max_enemies -1) = pick target
         return spaces.Discrete(self.simultaneous_enemies + 1)
 
     def reset(self) -> Any:
-
+        """Resets the env to starting point"""
         # remove all entities and set to 0 enemies
         self.simulator.reset()
 
@@ -213,35 +228,45 @@ class ZoneDefense(MultiAgentEnv):
         self.simulator.add_script(enemy_script)
 
         # create agent(s)
-        self.agent = self.simulator.create_particle(
-            name="agent", type=Types.AGENT
+        self.agents = {}
+        for i in range(self.number_agents):
+            agent = self.simulator.create_particle(
+                name=f"agent_{i}", type=Types.AGENT
+            )
+            agent.set_position(0, 0, 0)
+            agent.set_radius(self.agent_radius)
+            self.agents[agent.name] = agent
+
+        return self._get_observation([a for a in self.agents])
+
+    def _get_observation(self, agents: List[str]) -> OrderedDict:
+
+        return OrderedDict(
+            {agent: self._get_observation_agent(agent) for agent in agents}
         )
-        self.agent.set_position(0, 0, 0)
-        self.agent.set_radius(self.agent_radius)
 
-        return self._get_observation()
-
-    def _get_observation(self) -> dict:
+    def _get_observation_agent(self, agent_name: str) -> dict:
 
         agent_obs = OrderedDict()
-
         obs_def = self._observations
 
-        agent_obs["agent_distance"] = obs_def["agent_distance"](
-            name=self.agent.name,
-            other=self.base.name,
-            simulator=self.simulator,
-        )
-        agent_obs["agent_bearing"] = obs_def["agent_bearing"](
-            name=self.agent.name,
-            other=self.base.name,
-            simulator=self.simulator,
-        )
-        agent_obs["agent_speed"] = obs_def["agent_speed"](
-            name=self.agent.name,
-            other=self.base.name,
-            simulator=self.simulator,
-        )
+        for i, each_agent in enumerate(self.agents.values()):
+
+            agent_obs[f"agent_{i}_distance"] = obs_def[f"agent_{i}_distance"](
+                name=each_agent.name,
+                other=self.base.name,
+                simulator=self.simulator,
+            )
+            agent_obs[f"agent_{i}_bearing"] = obs_def[f"agent_{i}_bearing"](
+                name=each_agent.name,
+                other=self.base.name,
+                simulator=self.simulator,
+            )
+            agent_obs[f"agent_{i}_speed"] = obs_def[f"agent_{i}_speed"](
+                name=each_agent.name,
+                other=self.base.name,
+                simulator=self.simulator,
+            )
 
         enemies = order_enemies_by_distance(self.simulator, self.base)
         enemies_padded = enemies + [None] * (
@@ -262,21 +287,22 @@ class ZoneDefense(MultiAgentEnv):
 
         agent_obs["action_mask"] = obs_def["action_mask"](enemies_padded)
 
-        return {self.agent.name: agent_obs}
+        return agent_obs
 
-    def _implement_actions(self, actions: Dict) -> None:
+    def _implement_actions_agent(self, actions: Dict) -> None:
 
         for name in actions:
-            self._logger.debug(f"agent picked {actions[name]}")
+            agent = self.agents[name]
+            self._logger.info(f"{name} picked {actions[name]}")
             if actions[name] == 0:
 
-                at_base = calculations.in_bounds_of(self.agent, self.base)
+                at_base = calculations.in_bounds_of(agent, self.base)
 
                 if at_base:
-                    self.agent.add_behavior(RemainInLocationSeconds(5.0))
+                    agent.add_behavior(RemainInLocationSeconds(5.0))
                     self._logger.info("Remaining at base")
                 else:
-                    self.agent.add_behavior(
+                    agent.add_behavior(
                         GoToPoint2D(
                             end=self.base.position,
                             speed=self.agent_speed,
@@ -295,13 +321,13 @@ class ZoneDefense(MultiAgentEnv):
 
             # calculate the intercept position
             intercept_pos = calculations.create_intercept_location(
-                self.agent,
+                agent,
                 self.simulator.get(target),
                 self.agent_speed,
                 self.enemy_speed,
             )
 
-            self.agent.add_behavior(
+            agent.add_behavior(
                 GoToPoint2D(
                     end=intercept_pos,
                     speed=self.agent_speed,
@@ -309,71 +335,99 @@ class ZoneDefense(MultiAgentEnv):
             )
             self._logger.info(f"Intercepting {target}")
 
-    def _time_to_query(self) -> bool:
+    def _time_to_query(self) -> Dict[str, bool]:
 
-        should_query, cond = self._query_funcs(
-            agent=self.agent, simulator=self.simulator, base=self.base
-        )
+        query_dict: dict = {}
 
-        return should_query
+        for name, particle in self.agents.items():
+            should_query, cond = self._query_funcs(
+                agent=particle, simulator=self.simulator, base=self.base
+            )
+            query_dict[name] = should_query
+
+        return query_dict
 
     def _remove_collided_enemies(self):
+        """Removes enemies from scenario if collision occurs"""
+        for agent in self.agents.values():
+            for collision in self.simulator.get_collision_events():
+                if self.base.name in collision.names:
+                    continue
 
-        for collision in self.simulator.get_collision_events():
-            if self.base.name in collision.names:
-                continue
+                if agent.name not in collision.names:
+                    continue
 
-            if self.agent.name not in collision.names:
-                continue
+                if all(["agent" in name for name in collision.names]):
+                    continue
 
-            names = set(collision.names)
-            names.remove(self.agent.name)
-            enemy_to_remove = names.pop()
+                names = set(collision.names)
+                names.remove(agent.name)
+                enemy_to_remove = names.pop()
 
-            self.simulator.remove_object(enemy_to_remove)
+                self.simulator.remove_object(enemy_to_remove)
 
-            self._logger.info(f"removed {enemy_to_remove}")
+                self._logger.info(f"removed {enemy_to_remove}")
 
     def step(
-        self, actions: Dict
+        self, action_dict: Dict
     ) -> Tuple[Dict[str, Any], dict, float, Dict[str, Any]]:
+        """Takes actions from policy and processes next obs, rwd, dones"""
 
-        self._implement_actions(actions)
+        self._implement_actions_agent(action_dict)
         self.simulator.update()
 
-        while not self._time_to_query():
+        should_query: Dict[str, bool] = self._time_to_query()
+        while not should_query.values():
             self.simulator.update()
 
-        rewards: dict = {self.agent.name: 0}
-        dones: dict = {self.agent.name: False, "__all__": False}
+        agents_to_return = [
+            agent for agent in should_query if should_query[agent]
+        ]
 
-        # collecting rewards
-        rwd, _ = self._reward_funcs(
-            agent=self.agent,
-            base=self.base,
-            simulator=self.simulator
-        )
-        rewards[self.agent.name] = rwd 
+        # get dones for agent to query
+        dones: dict = {agent: False for agent in agents_to_return}
+        dones["__all__"] = False
 
-        # collect dones
-        done, _ = self._done_funcs(
-            agent=self.agent,
-            base=self.base,
-            simulator=self.simulator
-        )
+        for agent in agents_to_return:
+            done, why = self._done_funcs(
+                agent=self.agents[agent],
+                base=self.base,
+                simulator=self.simulator,
+            )
+            dones[agent] = done
+            # mark all done if at least one done
+            dones["__all__"] = done
 
-        dones[self.agent.name] = done
-        dones["__all__"] = dones[self.agent.name]
+        # collect everyone else's obs
+        if dones["__all__"]:
+            agents_to_return.extend(
+                [
+                    agent
+                    for agent in self.agents
+                    if agent not in agents_to_return
+                ]
+            )
+
+        rewards: dict = {}
+        # collecting rewards and dones
+        for agent in agents_to_return:
+
+            rwd, _ = self._reward_funcs(
+                agent=self.agents[agent],
+                base=self.base,
+                simulator=self.simulator,
+            )
+            rewards[agent] = rwd
 
         # clean up sim for next round
         self._remove_collided_enemies()
+        return self._get_observation(agents_to_return), rewards, dones, {}
 
-        return self._get_observation(), rewards, dones, {}
-
-    def render(self):
-
+    def render(self, mode):
+        """Render the simulation"""
         from gym.envs.classic_control import rendering
 
+        """
         if getattr(self, "_display") is None:
             self._display = rendering.Viewer(self.grid_size, self.grid_size)
 
@@ -388,5 +442,5 @@ class ZoneDefense(MultiAgentEnv):
             self.agent_render.add_attr(agent_trans)
 
             self._display.add_geom(self.agent_render)
-
+        """
         return self._display.render(True)

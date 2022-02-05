@@ -26,12 +26,12 @@ class MaxTimeExceededCondition(BaseCallable):
 
 class EnemyEnteredBaseCondition(BaseCallable):
     def __call__(self, simulator: SimpleWorld, **kwargs) -> bool:
-        agent = simulator.get_all_of_type(Types.AGENT)[0]
+        all_agent = simulator.get_all_of_type(Types.AGENT)
 
         for coll in simulator.get_collision_events():
             if "base" not in coll.names:
                 continue
-            elif agent in coll.names:
+            elif any([agent in coll.names for agent in all_agent]):
                 continue
             return True
         return False
