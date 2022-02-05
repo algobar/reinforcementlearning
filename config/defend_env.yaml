@@ -1,6 +1,6 @@
 env: environments.defend.ZoneDefense
 number_agents: 2
-simultaneous_enemies: 3
+simultaneous_enemies: 4
 agent_speed: 2
 enemy_speed: 1
 grid_size: 20

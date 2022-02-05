@@ -220,7 +220,7 @@ class ZoneDefense(MultiAgentEnv):
         enemy_script: Script = CreateEntityInterval(
             prefix="enemy",
             type=Types.ENEMY,
-            interval=10,
+            interval=5,
             max=self.simultaneous_enemies,
             setup_func=create_enemy,
         )
@@ -377,12 +377,17 @@ class ZoneDefense(MultiAgentEnv):
         self.simulator.update()
 
         should_query: Dict[str, bool] = self._time_to_query()
-        while not should_query.values():
+        while not any(should_query.values()):
             self.simulator.update()
+            should_query = self._time_to_query()
 
         agents_to_return = [
             agent for agent in should_query if should_query[agent]
         ]
+
+        assert len(agents_to_return) > 0, f"{should_query}"
+
+        self._logger.info(f"getting actions for {agents_to_return}")
 
         # get dones for agent to query
         dones: dict = {agent: False for agent in agents_to_return}

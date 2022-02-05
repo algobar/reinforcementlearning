@@ -22,6 +22,14 @@ def train_parse_args():
 
 
 def train(train_config: dict, env_config: dict):
+    """Trains agent given the training config file
+    and the environment config file
+
+    :param train_config: specifies trainer RLLIB params
+    :type train_config: dict
+    :param env_config: specifies env params
+    :type env_config: dict
+    """
 
     env_def = utils.import_class(env_config[ENV_ENTRY])
 
@@ -40,6 +48,15 @@ def train(train_config: dict, env_config: dict):
 
 
 def evaluate(save_path: str, checkpoint: str):
+    """Evaluates the environment given the path
+    to the checkpoint folder, and path to the
+    checkpoint file
+
+    :param save_path: where the training run data was saved
+    :type save_path: str
+    :param checkpoint: checkpoint file
+    :type checkpoint: str
+    """
 
     config: dict = utils.load_json_from_file(
         os.path.join(save_path, "params.json")
