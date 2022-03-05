@@ -101,6 +101,7 @@ class ZoneDefense(MultiAgentEnv):
         agent_radius: float,
         enemy_radius: float,
         sim_step_size: float,
+        enemy_creation_interval: float,
         logging_level: str = logging.DEBUG,
         total_episode_time: float = 120,
         reward_weights: dict = None,
@@ -121,7 +122,7 @@ class ZoneDefense(MultiAgentEnv):
         self.base_radius: float = base_radius
         self.agent_radius: float = agent_radius
         self.enemy_radius: float = enemy_radius
-
+        self.enemy_creation_interval: float = enemy_creation_interval
         # create the simulation
         self.simulator = SimpleWorld(sim_step_size)
         # configure the logger
@@ -164,6 +165,12 @@ class ZoneDefense(MultiAgentEnv):
             obs[f"agent_{i}_bearing"] = AbsoluteBearing()
             obs[f"agent_{i}_speed"] = Speed(modifier=NormalizeBox())
 
+            obs[f"agent_{i}_to_agent"] = DistanceToPoint(
+                modifier=NormalizeBox(), low=0, high=10
+            )
+
+            obs[f"agent_{i}_bearing_to_agent"] = AbsoluteBearing()
+
         for i in range(self.simultaneous_enemies):
             obs[f"enemy_{i}_distance"] = DistanceToPoint(
                 modifier=NormalizeBox()
@@ -202,13 +209,22 @@ class ZoneDefense(MultiAgentEnv):
         self.base = self.simulator.create_particle(
             name="base", type=Types.BASE
         )
-        self.base.set_position(0, 0, 0)
+        self.base.set_position(self.grid_size / 2, self.grid_size / 2, 0)
         self.base.set_radius(self.base_radius)
-
         # add script to generate enemies
         def create_enemy(particle: Particle) -> None:
-            start_x: float = numpy.random.uniform(0, self.grid_size)
-            particle.set_position(start_x, self.grid_size, 0)
+
+            start_angle_rad = numpy.random.uniform(0, 2 * numpy.pi)
+
+            start_cos: float = numpy.cos(start_angle_rad)
+            start_sin: float = numpy.sin(start_angle_rad)
+
+            offset: float = self.grid_size / 2
+
+            start_x = offset * start_cos + offset
+            start_y = offset * start_sin + offset
+
+            particle.set_position(start_x, start_y, 0)
             particle.set_radius(self.enemy_radius)
 
             behavior = GoToPoint2D(
@@ -220,7 +236,7 @@ class ZoneDefense(MultiAgentEnv):
         enemy_script: Script = CreateEntityInterval(
             prefix="enemy",
             type=Types.ENEMY,
-            interval=5,
+            interval=self.enemy_creation_interval,
             max=self.simultaneous_enemies,
             setup_func=create_enemy,
         )
@@ -233,7 +249,11 @@ class ZoneDefense(MultiAgentEnv):
             agent = self.simulator.create_particle(
                 name=f"agent_{i}", type=Types.AGENT
             )
-            agent.set_position(0, 0, 0)
+            agent.set_position(
+                self.base.position[0],
+                self.base.position[1],
+                self.base.position[2],
+            )
             agent.set_radius(self.agent_radius)
             self.agents[agent.name] = agent
 
@@ -247,6 +267,7 @@ class ZoneDefense(MultiAgentEnv):
 
     def _get_observation_agent(self, agent_name: str) -> dict:
 
+        agent_self = self.agents[agent_name]
         agent_obs = OrderedDict()
         obs_def = self._observations
 
@@ -265,6 +286,20 @@ class ZoneDefense(MultiAgentEnv):
             agent_obs[f"agent_{i}_speed"] = obs_def[f"agent_{i}_speed"](
                 name=each_agent.name,
                 other=self.base.name,
+                simulator=self.simulator,
+            )
+
+            agent_obs[f"agent_{i}_to_agent"] = obs_def[f"agent_{i}_to_agent"](
+                name=each_agent.name,
+                other=agent_self.name,
+                simulator=self.simulator,
+            )
+
+            agent_obs[f"agent_{i}_bearing_to_agent"] = obs_def[
+                f"agent_{i}_bearing_to_agent"
+            ](
+                name=each_agent.name,
+                other=agent_self.name,
                 simulator=self.simulator,
             )
 
@@ -318,7 +353,6 @@ class ZoneDefense(MultiAgentEnv):
 
             # subtract one b/c of go to base as 0
             target = enemies[actions[name] - 1]
-
             # calculate the intercept position
             intercept_pos = calculations.create_intercept_location(
                 agent,
@@ -344,7 +378,6 @@ class ZoneDefense(MultiAgentEnv):
                 agent=particle, simulator=self.simulator, base=self.base
             )
             query_dict[name] = should_query
-
         return query_dict
 
     def _remove_collided_enemies(self):

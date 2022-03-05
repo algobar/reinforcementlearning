@@ -29,7 +29,7 @@ class SimpleWorld:
     scripts: List = field(default_factory=list)
 
     _added_particles: List = field(default_factory=list)
-    _rendering: Render = field(init=False)
+    _rendering: Render = None
 
     def add_render(self, render: Render):
         """Add a renderer to the sim"""

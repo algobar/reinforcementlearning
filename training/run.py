@@ -5,6 +5,10 @@ import utils
 import models
 from ray.rllib.agents.ppo import PPOTrainer
 
+from simulation.rendering import SocketIORender
+
+from pprint import pprint
+
 ENVIRONMENT_CONFIG: str = "env_config"
 ENV_ENTRY: str = "env"
 
@@ -41,7 +45,7 @@ def train(train_config: dict, env_config: dict):
             ENVIRONMENT_CONFIG: env_config,
         },
     )
-    for _ in range(20):
+    for _ in range(60):
 
         print(trainer.train())
         trainer.save()
@@ -73,16 +77,20 @@ def evaluate(save_path: str, checkpoint: str):
 
     env = env_def(config[ENVIRONMENT_CONFIG])
 
-    done = False
     obs = env.reset()
 
-    while not done:
-        # env.render()
+    env.simulator.add_render(SocketIORender("http://localhost:3000"))
+
+    while True:
         actions = {
             agent: trainer.compute_single_action(obs[agent]) for agent in obs
         }
+
         obs, reward, dones, info = env.step(actions)
         done = dones["__all__"]
+
+        if done:
+            obs = env.reset()
 
 
 if __name__ == "__main__":

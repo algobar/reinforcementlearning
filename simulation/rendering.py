@@ -51,6 +51,5 @@ class SocketIORender(Render):
 
     def render(self, sim_data: Dict[str, RenderData], **kwds) -> None:
         """Converts the sim data to JSON and emits to the server"""
-        time.sleep(0.01)
         as_json = {key: value.to_json() for key, value in sim_data.items()}
         self.sio.emit("sim", data=as_json)

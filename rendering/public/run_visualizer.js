@@ -1,5 +1,7 @@
 
-const socket = io("http://172.31.182.228:3000");
+//import Two from 'https://cdn.skypack.dev/two.js@latest';
+
+const socket = io("http://localhost:3000");
 
 socket.on("data", (data) => {
     console.log("got data");
@@ -9,7 +11,7 @@ socket.on("data", (data) => {
     ctx.clearRect(0, 0, 300, 300); // clear canvas
     for (var key in data) {
         ctx.beginPath();
-        ctx.fillRect(data[key].x * 15, data[key].y * 15, 10, 10);
+        ctx.fillRect(data[key].x * 10 - 5, data[key].y * 10 - 5, 10, 10);
         ctx.stroke();
 
     }

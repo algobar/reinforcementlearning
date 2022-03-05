@@ -38,15 +38,39 @@ class EnemyEnteredBaseCondition(BaseCallable):
 
 
 class AgentInterception(BaseCallable):
+    """Looks for agent interception of objects
+
+    :param BaseCallable: [description]
+    :type BaseCallable: [type]
+    """
+
     def __call__(
         self, agent: Particle, simulator: SimpleWorld, base: Particle, **kwargs
     ) -> bool:
-        return any(
-            [
-                agent.name in task.names and base.name not in task.names
-                for task in simulator.get_collision_events()
-            ]
-        )
+        """Returns true if an agent has intercepted a type enemy
+
+        :param agent: [description]
+        :type agent: Particle
+        :param simulator: [description]
+        :type simulator: SimpleWorld
+        :param base: [description]
+        :type base: Particle
+        :return: [description]
+        :rtype: bool
+        """
+
+        set_enemies = set(simulator.get_all_of_type(Types.ENEMY))
+
+        for collision in simulator.get_collision_events():
+            coll_set = set(collision.names)
+            # an enemy must be in the set
+            if len(set_enemies.intersection(coll_set)) == 0:
+                continue
+            # agent must be in the set
+            elif not agent.name in coll_set:
+                continue
+            return True
+        return False
 
 
 class AgentTaskCompleteCondition(BaseCallable):

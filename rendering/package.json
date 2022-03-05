@@ -7,5 +7,12 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.17.2",
+    "http": "0.0.1-security",
+    "socket.io": "^4.4.1",
+    "two.js": "^0.8.3",
+    "ws": "^8.4.2"
+  }
 }
