@@ -1,9 +1,10 @@
-import ray
+from ray import tune
 import os
 import argparse
 import utils
 import models
 from ray.rllib.agents.ppo import PPOTrainer
+from ray.tune.registry import register_env
 
 ENVIRONMENT_CONFIG: str = "env_config"
 ENV_ENTRY: str = "env"
@@ -33,18 +34,20 @@ def train(train_config: dict, env_config: dict):
 
     env_def = utils.import_class(env_config[ENV_ENTRY])
 
-    ray.init()
-    trainer = PPOTrainer(
-        env=env_def,
+    def env_creator(env_config):
+        return env_def(env_config)
+
+    register_env(env_config[ENV_ENTRY], env_creator)
+
+    tune.run(
+        PPOTrainer,
         config={
             **train_config,
             ENVIRONMENT_CONFIG: env_config,
+            "env": env_config[ENV_ENTRY],
         },
+        local_dir="./ray_results",
     )
-    for _ in range(20):
-
-        print(trainer.train())
-        trainer.save()
 
 
 def evaluate(save_path: str, checkpoint: str):
