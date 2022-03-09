@@ -1,21 +1,10 @@
-from dataclasses import dataclass, field
-from typing import Callable, List
+from dataclasses import dataclass
+from typing import Callable
 from enum import Enum, auto
 import numpy
 
-
-def create_position(x: float, y: float, z: float) -> numpy.array:
-    """Creates a new position given the initial coordinates
-
-    Args:
-        x (float): [description]
-        y (float): [description]
-        z (float): [description]
-
-    Returns:
-        numpy.array: represents coordinates in 3 dimensions
-    """
-    return numpy.array([x, y, z], dtype=numpy.float32)
+from simulation.simulator import Simulator
+from simulation.messages import TaskComplete
 
 
 class Types(Enum):
@@ -33,10 +22,60 @@ class Particle:
     name: str
     position: numpy.array
     type: Types
-    radius: float = 0
     speed: float = 0
-    behavior: Callable = None
-    tasked: bool = False
+    radius: float = 0
+
+    _simulator: Simulator = None
+    _behavior: Callable = None
+    _tasked: bool = False
+
+    @property
+    def tasked(self):
+
+        return self._tasked
+
+    @tasked.setter
+    def tasked(self, value: bool):
+
+        # setting task to false will trigger
+        # a complete
+        if not value:
+            self.register_task_complete()
+
+        self._tasked = value
+
+    @property
+    def behavior(self):
+
+        return self._behavior
+
+    @behavior.setter
+    def behavior(self, behavior):
+
+        self._behavior = behavior
+
+        if self._behavior is None:
+            self.tasked = False
+
+        self.tasked = True
+
+    @property
+    def simulator(self) -> Simulator:
+
+        return self._simulator
+
+    @simulator.setter
+    def simulator(self, simulator: Simulator):
+
+        # setting the simulator
+        # registers the particle
+        self._simulator = simulator
+
+    def register_task_complete(self) -> None:
+
+        self.simulator.notify_listeners(
+            TaskComplete(self.simulator.time, self)
+        )
 
     def set_position(self, x: float, y: float, z: float) -> None:
 
@@ -44,29 +83,34 @@ class Particle:
         self.position[1] = y
         self.position[2] = z
 
-    def set_radius(self, radius: float):
-
-        self.radius = radius
-
-    def add_behavior(self, behavior, **kwargs):
-
-        self.behavior = behavior
-        self.tasked = True
-
-    def remove_behavior(self):
-
-        self.behavior = None
-        self.tasked = False
-
     def update_behavior(self, **kwargs) -> None:
 
         if self.behavior is None:
             return
 
         if self.behavior(particle=self, **kwargs):
-            self.remove_behavior()
+            self.behavior = None
 
     def update(self, **kwargs) -> None:
         """Updates the object, replaces the behavior if a new one is provided"""
 
         self.update_behavior(**kwargs)
+
+
+def create_position(x: float, y: float, z: float) -> numpy.array:
+    """Creates a new position given the initial coordinates
+
+    Args:
+        x (float): [description]
+        y (float): [description]
+        z (float): [description]
+
+    Returns:
+        numpy.array: represents coordinates in 3 dimensions
+    """
+    return numpy.array([x, y, z], dtype=numpy.float32)
+
+
+def create_particle(name: str, position: numpy.array, type: Types):
+
+    return Particle(name, position, type)

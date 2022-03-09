@@ -1,45 +1,36 @@
-from abc import ABC, abstractmethod
-from typing import Callable
 import numpy
-from dataclasses import dataclass, field
-from functools import partial
 from simulation.calculations import magnitude, straight_line_path_2d
 from simulation.particles import Particle
 
 
-class Behavior(ABC):
-    @abstractmethod
-    def __call__(self, particle: Particle, timestep: float, **kwds) -> bool:
-        ...
+def go_to_point_2d(
+    particle: Particle,
+    destination: numpy.array,
+    speed: float,
+    timestep: float,
+    threshold: float = 0.1,
+) -> bool:
+
+    while magnitude(particle.position - destination) > threshold:
+        particle.position = straight_line_path_2d(
+            particle.position, destination, speed, timestep
+        )
+
+        yield False
+
+    yield True
 
 
-@dataclass
-class GoToPoint2D(Behavior):
+def remain_in_location_seconds(
+    duration_seconds: float, timestep: float
+) -> bool:
 
-    end: numpy.array
-    speed: float
-    threshold: float = 0.1
-    _behavior: Callable = field(init=False)
+    time_waited: float = 0
 
-    def __post_init__(self):
+    while time_waited < duration_seconds:
 
-        self.end = numpy.copy(self.end)
-        self._behavior = partial(straight_line_path_2d, end=self.end, speed=self.speed)
+        time_waited += timestep
 
-    def __call__(self, particle: Particle, timestep: float, **kwds) -> bool:
+        yield False
 
-        particle.position = self._behavior(current=particle.position, timestep=timestep)
-
-        return magnitude(particle.position - self.end) < self.threshold
-
-
-@dataclass
-class RemainInLocationSeconds:
-    total_time: float
-    _time_waited: float = 0.0
-
-    def __call__(self, timestep: float, **kwds) -> bool:
-
-        self._time_waited += timestep
-
-        return self._time_waited >= self.total_time
+    yield True

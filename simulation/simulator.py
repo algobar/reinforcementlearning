@@ -1,41 +1,33 @@
 from dataclasses import dataclass, field
+from logging.config import listen
 from typing import List
-from simulation.rendering import Render, RenderData
 from simulation.scripts import Script
-from simulation.events import check_for_collisions, TaskCompletedEvent
-
+from simulation.messages import Message, ParticleAdded, SimulationState
 from .particles import (
     Particle,
-    Types,
-    create_position,
 )
 
 
 @dataclass
-class SimpleWorld:
+class Simulator:
     """
     Simulation that maintains and updates
     particles on a fixed timestep.
 
     Supports ability to add fixed scripts
     to manipulate objects, as well
-    as a general interface for simple queries
+    as a general interface to register listeners
+    for queries
     """
 
     step_size: float
     time: float = 0
     objects: dict = field(default_factory=dict)
-    type_counter: dict = field(default_factory=dict)
     scripts: List = field(default_factory=list)
 
-    _added_particles: List = field(default_factory=list)
-    _rendering: Render = None
+    listeners: list = field(default_factory=list)
 
-    def add_render(self, render: Render):
-        """Add a renderer to the sim"""
-        self._rendering = render
-
-    def add_object(self, particle: Particle) -> None:
+    def add_particle(self, particle: Particle) -> None:
         """Adds a particle to the simulation.
 
         :param particle: particle object
@@ -46,69 +38,41 @@ class SimpleWorld:
         if particle.name in self.objects:
             raise KeyError(f"{particle.name} already exists!")
 
-        # keep record of type
-        if particle.type.name not in self.type_counter:
-            self.type_counter[particle.type.name] = set()
-
-        self.type_counter[particle.type.name].add(particle.name)
-
         self.objects[particle.name] = particle
 
-        self._added_particles.append(particle.name)
+        self.register_particle_added(particle)
 
-    def remove_object(self, name: str) -> None:
+    def remove_particle(self, name: str) -> None:
         """Removes the provided name from the sim"""
-        particle: Particle = self.objects.pop(name)
-        self.type_counter[particle.type.name].remove(name)
+        self.objects.pop(name)
 
-    def reset(self) -> None:
+    def remove_all_particles(self) -> None:
         """
         Remove all the objects from the sim,
-        resets any other containers to
-        empty state.
         """
 
         self.objects.clear()
+
+    def remove_all_scripts(self) -> None:
+
         self.scripts.clear()
-        self.type_counter.clear()
-        self._added_particles.clear()
+
+    def reset(self):
+
+        self.remove_all_particles()
+        self.remove_all_scripts()
         self.time = 0
-
-    def get_all_of_type(self, type: Types):
-        """Returns particles of matching type
-
-        :param type: [description]
-        :type type: Types
-        :return: [description]
-        :rtype: [type]
-        """
-        return tuple(self.type_counter.get(type.name, ()))
 
     def get(self, name: str) -> Particle:
         """Returns the particle of the given name"""
 
         return self.objects[name]
 
-    def create_particle(self, name: str, type: Types) -> Particle:
-        """Creates a particle of given unique name and built
-        in type.
+    def register_particle_added(self, particle: Particle) -> None:
 
-        :param name: [description]
-        :type name: str
-        :param type: [description]
-        :type type: Types
-        :return: [description]
-        :rtype: Particle
-        """
-        part = Particle(
-            name=name, position=create_position(0, 0, 0), type=type
-        )
+        self.simulator.notify_listeners(ParticleAdded(self.time, particle))
 
-        self.add_object(part)
-
-        return part
-
-    def add_script(self, script: Script):
+    def register_script(self, script: Script):
         """Adds a callable script to the simulation
         to call and maintain
 
@@ -117,43 +81,27 @@ class SimpleWorld:
         """
         self.scripts.append(script)
 
-    def get_collision_events(self) -> List:
-        """Query for collisions"""
-        return check_for_collisions(self.objects)
+    def register_listener(self, listener):
+        """Registers a listener
 
-    def get_untasked_agents(self) -> List:
-        """Return list of particles with no task
-
-        :return: [description]
-        :rtype: List
+        :param listener: _description_
+        :type listener: _type_
         """
-        output = []
-        for particle in self.objects.values():
 
-            if particle.tasked:
-                continue
+        self.listeners.append(listener)
 
-            event = TaskCompletedEvent()
-            event.add(particle.name)
-            output.append(event)
+    def notify_listeners(self, event: Message):
+        """Notifies the listeners of the message
 
-        return output
-
-    def get_added_particles(self) -> List:
-        """Get particles added in last
-        timestep
-
-        :return: [description]
-        :rtype: List
+        :param event: _description_
+        :type event: Message
         """
-        return list(self._added_particles)
+        for listener in self.listeners:
+
+            listener.notify(event)
 
     def update(self) -> None:
         """Updates the objects given the delta timestep in seconds"""
-
-        # any new particles added in this
-        # timestep would now be added to new list
-        self._added_particles.clear()
 
         for obj in self.objects.values():
 
@@ -164,11 +112,6 @@ class SimpleWorld:
 
         self.time += self.step_size
 
-        if self._rendering is not None:
-            render_data = {
-                part.name: RenderData(
-                    part.name, part.position[0], part.position[1], part.radius
-                )
-                for part in self.objects.values()
-            }
-            self._rendering.render(render_data)
+        for listener in self.listeners:
+
+            listener.notify(SimulationState(self.time, self.objects))
