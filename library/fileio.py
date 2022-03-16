@@ -1,12 +1,9 @@
-"""General python based utility functions"""
-
-import os
 import yaml
+import json
+import os
 import datetime
 import time
 import math
-import importlib
-import json
 
 
 def load_yaml_from_file(path: str) -> dict:
@@ -38,20 +35,7 @@ def load_json_from_file(path: str) -> dict:
     return config
 
 
-def import_class(path: str) -> type:
-    """Returns the class definition given the path to class
-
-    :param path: path to class in form "a.b.class"
-    :type path: str
-    :return: the class definition (not initialized)
-    :rtype: [type]
-    """
-    module_path, class_name = path.rsplit(".", 1)
-
-    return getattr(importlib.import_module(module_path), class_name)
-
-
-def create_save_path(directory: str) -> str:
+def today_and_now_folder(directory: str) -> str:
     """Creates a save path in the given directory
 
     :param directory: parent directory

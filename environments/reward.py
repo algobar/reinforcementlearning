@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict
 from .base import BaseCallable, Collector
 
 from .conditions import (

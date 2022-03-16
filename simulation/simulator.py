@@ -1,8 +1,8 @@
+from __future__ import annotations
 from dataclasses import dataclass, field
-from logging.config import listen
 from typing import List
 from simulation.scripts import Script
-from simulation.messages import Message, ParticleAdded, SimulationState
+from simulation.messages import Message, SimulationState
 from .particles import (
     Particle,
 )
@@ -40,8 +40,6 @@ class Simulator:
 
         self.objects[particle.name] = particle
 
-        self.register_particle_added(particle)
-
     def remove_particle(self, name: str) -> None:
         """Removes the provided name from the sim"""
         self.objects.pop(name)
@@ -67,10 +65,6 @@ class Simulator:
         """Returns the particle of the given name"""
 
         return self.objects[name]
-
-    def register_particle_added(self, particle: Particle) -> None:
-
-        self.simulator.notify_listeners(ParticleAdded(self.time, particle))
 
     def register_script(self, script: Script):
         """Adds a callable script to the simulation

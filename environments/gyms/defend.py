@@ -31,7 +31,7 @@ from simulation.particles import (
 from simulation.scripts import CreateEntityInterval, Script
 from simulation import calculations
 
-from .modifier import NormalizeBox
+from ..modifier import NormalizeBox
 
 
 def order_enemies_by_distance(simulator: SimpleWorld, poi: Particle) -> List:
@@ -135,7 +135,7 @@ class ZoneDefense(MultiAgentEnv):
         self._query_funcs = ConditionCollector()
         self._query_funcs.append(AgentTaskCompleteCondition())
         self._query_funcs.append(AgentInterception())
-        self._query_funcs.append(ParticleAddedCondition())
+        # self._query_funcs.append(ParticleAddedCondition())
 
         self._reward_funcs = RewardCollector()
         self._reward_funcs.append(

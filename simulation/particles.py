@@ -1,18 +1,15 @@
+from __future__ import annotations
+import typing
+
+if typing.TYPE_CHECKING:
+    from simulator import Simulator
+
 from dataclasses import dataclass
 from typing import Callable
-from enum import Enum, auto
 import numpy
 
-from simulation.simulator import Simulator
 from simulation.messages import TaskComplete
-
-
-class Types(Enum):
-    """Represents types of objects in the simulation"""
-
-    AGENT = auto()
-    BASE = auto()
-    ENEMY = auto()
+from simulation.types import Types
 
 
 @dataclass
@@ -58,18 +55,6 @@ class Particle:
             self.tasked = False
 
         self.tasked = True
-
-    @property
-    def simulator(self) -> Simulator:
-
-        return self._simulator
-
-    @simulator.setter
-    def simulator(self, simulator: Simulator):
-
-        # setting the simulator
-        # registers the particle
-        self._simulator = simulator
 
     def register_task_complete(self) -> None:
 

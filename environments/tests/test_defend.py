@@ -1,7 +1,7 @@
 import pytest
 import yaml
 import random
-from environments.defend import ZoneDefense
+from environments.gyms.defend import ZoneDefense
 from simulation.particles import Types
 
 

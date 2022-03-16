@@ -1,14 +1,12 @@
-from ray import tune
 import os
 import argparse
-import utils
+import ray
+from library.fileio import load_json_from_file, load_yaml_from_file
 import models
 from ray.rllib.agents.ppo import PPOTrainer
-from ray.tune.registry import register_env
-
-from simulation.rendering import SocketIORender
-
-from pprint import pprint
+from rendering.rendering import SocketIORender
+from library.imports import import_class
+from library.rllib import rllib_get_checkpoint_path
 
 ENVIRONMENT_CONFIG: str = "env_config"
 ENV_ENTRY: str = "env"
@@ -21,7 +19,7 @@ def train_parse_args():
     parser.add_argument("--train-config", type=str)
     parser.add_argument("--eval", action="store_true")
     parser.add_argument("--load", type=str)
-    parser.add_argument("--checkpoint", type=str)
+    parser.add_argument("--checkpoint", type=int)
 
     return parser.parse_args()
 
@@ -35,30 +33,22 @@ def train(train_config: dict, env_config: dict):
     :param env_config: specifies env params
     :type env_config: dict
     """
-
-    env_def = utils.import_class(env_config[ENV_ENTRY])
-
-    def env_creator(env_config):
-        return env_def(env_config)
-
-    register_env(env_config[ENV_ENTRY], env_creator)
-
-    tune.run(
-        PPOTrainer,
+    ray.init(local_mode=False)
+    env_def = import_class(env_config[ENV_ENTRY])
+    trainer = PPOTrainer(
+        env=env_def,
         config={
             **train_config,
             ENVIRONMENT_CONFIG: env_config,
-            "env": env_config[ENV_ENTRY],
         },
-        local_dir="./ray_results",
     )
-    for _ in range(60):
 
+    for i in range(200):
         print(trainer.train())
         trainer.save()
 
 
-def evaluate(save_path: str, checkpoint: str):
+def evaluate(save_path: str, checkpoint: int):
     """Evaluates the environment given the path
     to the checkpoint folder, and path to the
     checkpoint file
@@ -69,18 +59,18 @@ def evaluate(save_path: str, checkpoint: str):
     :type checkpoint: str
     """
 
-    config: dict = utils.load_json_from_file(
-        os.path.join(save_path, "params.json")
-    )
+    config: dict = load_json_from_file(os.path.join(save_path, "params.json"))
+
+    checkpoint_filename = rllib_get_checkpoint_path(save_path, checkpoint)
+
     config["num_workers"] = 0
     config[ENVIRONMENT_CONFIG]["logging_level"] = "DEBUG"
 
     # TODO remove environment config to be left with trainer params
-    ray.init()
-    env_def: type = utils.import_class(config[ENVIRONMENT_CONFIG][ENV_ENTRY])
+    env_def: type = import_class(config[ENVIRONMENT_CONFIG][ENV_ENTRY])
 
     trainer = PPOTrainer(env=env_def, config=config)
-    trainer.restore(checkpoint)
+    trainer.restore(checkpoint_filename)
 
     env = env_def(config[ENVIRONMENT_CONFIG])
 
@@ -108,8 +98,8 @@ if __name__ == "__main__":
         evaluate(save_path=args.load, checkpoint=args.checkpoint)
         exit(0)
 
-    env_yaml = utils.load_yaml_from_file(args.env_config)
-    train_yaml = utils.load_yaml_from_file(args.train_config)
+    env_yaml = load_yaml_from_file(args.env_config)
+    train_yaml = load_yaml_from_file(args.train_config)
 
     train(
         env_config=env_yaml,

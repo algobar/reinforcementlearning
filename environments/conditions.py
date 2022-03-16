@@ -1,16 +1,23 @@
 from .base import BaseCallable, Collector
-from simulation.simulator import SimpleWorld
 from simulation.particles import Types, Particle
 
-from typing import Tuple, Dict, Any
+from typing import List, Tuple, Dict
+from simulation.messages import (
+    Collision,
+    Message,
+    SimulationState,
+    TaskComplete,
+)
+
+from listeners.event_manager import EventManager
 
 
 class ConditionCollector(Collector):
-    def __call__(self, **kwargs) -> Tuple[bool, Dict[str, bool]]:
+    def __call__(self, **kwargs) -> Tuple[bool, Dict[str, Message]]:
 
         results = {cond.__name__: cond(**kwargs) for cond in self._callables}
 
-        return any(results.values()), results
+        return any([res[0] for res in results]), results
 
 
 class MaxTimeExceededCondition(BaseCallable):
@@ -18,23 +25,39 @@ class MaxTimeExceededCondition(BaseCallable):
         self.max_time = max_time
         super().__init__()
 
-    def __call__(self, simulator: SimpleWorld, **kwargs) -> bool:
-        if simulator.time >= self.max_time:
-            return True
-        return False
+    def __call__(
+        self, event_manager: EventManager, **kwargs
+    ) -> Tuple[bool, Message]:
+
+        sim_state: SimulationState = event_manager.get_state()
+
+        return sim_state.time > self.max_time, None
 
 
 class EnemyEnteredBaseCondition(BaseCallable):
-    def __call__(self, simulator: SimpleWorld, **kwargs) -> bool:
-        all_agent = simulator.get_all_of_type(Types.AGENT)
+    def __call__(
+        self, event_manager: EventManager, base: Particle, **kwargs
+    ) -> Tuple[bool, Collision]:
 
-        for coll in simulator.get_collision_events():
-            if "base" not in coll.names:
+        collisions: List[Collision] = event_manager.get_messages_for(
+            base.name, Collision
+        )
+
+        for each_collision in collisions:
+
+            if base not in each_collision.particles:
+
                 continue
-            elif any([agent in coll.names for agent in all_agent]):
+
+            types = {part.type for part in each_collision.particles}
+
+            if Types.ENEMY not in types:
+
                 continue
-            return True
-        return False
+
+            return True, each_collision
+
+        return False, None
 
 
 class AgentInterception(BaseCallable):
@@ -45,47 +68,42 @@ class AgentInterception(BaseCallable):
     """
 
     def __call__(
-        self, agent: Particle, simulator: SimpleWorld, base: Particle, **kwargs
-    ) -> bool:
-        """Returns true if an agent has intercepted a type enemy
+        self, event_manager: EventManager, agent: Particle, **kwargs
+    ) -> Tuple[bool, Message]:
+        """Returns true if an agent has intercepted a type enemy"""
 
-        :param agent: [description]
-        :type agent: Particle
-        :param simulator: [description]
-        :type simulator: SimpleWorld
-        :param base: [description]
-        :type base: Particle
-        :return: [description]
-        :rtype: bool
-        """
+        collisions: List[Collision] = event_manager.get_messages_for(
+            agent.name, Collision
+        )
 
-        set_enemies = set(simulator.get_all_of_type(Types.ENEMY))
+        for each_collision in collisions:
 
-        for collision in simulator.get_collision_events():
-            coll_set = set(collision.names)
-            # an enemy must be in the set
-            if len(set_enemies.intersection(coll_set)) == 0:
+            types = {part.type for part in each_collision.particles}
+
+            if Types.BASE in types:
                 continue
-            # agent must be in the set
-            elif not agent.name in coll_set:
+
+            if all([Types.AGENT == part_type for part_type in types]):
                 continue
-            return True
-        return False
+
+            return True, each_collision
+
+        return False, None
 
 
 class AgentTaskCompleteCondition(BaseCallable):
     def __call__(
-        self, agent: Particle, simulator: SimpleWorld, **kwargs
+        self, agent: Particle, event_manager: EventManager, **kwargs
     ) -> bool:
-        return any(
-            [
-                agent.name in task.names
-                for task in simulator.get_untasked_agents()
-            ]
+
+        completed_tasks: List[TaskComplete] = event_manager.get_messages_for(
+            agent.name, TaskComplete
         )
 
+        if len(completed_tasks) < 1:
+            return False, None
 
-class ParticleAddedCondition(BaseCallable):
-    def __call__(self, simulator: SimpleWorld, **kwargs) -> bool:
+        if len(completed_tasks) > 1:
+            raise ValueError("only expecting at most one completed task!")
 
-        return len(simulator.get_added_particles()) > 0
+        return True, completed_tasks[0]
