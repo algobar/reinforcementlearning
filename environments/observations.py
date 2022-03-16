@@ -1,5 +1,7 @@
 from abc import abstractmethod
 from typing import Any, List
+
+from simulation.messages import SimulationState
 from .base import BaseCallable
 from .modifier import Modifier, float64_array
 from gym import spaces
@@ -56,14 +58,14 @@ class DistanceToPoint(Observation):
         )
 
     def __call__(
-        self, name: str, other: str, simulator: SimpleWorld, **kwargs
+        self, name: str, other: str, state: SimulationState, **kwargs
     ) -> numpy.array:
 
         if name is None:
             return float64_array(DEFAULT_INVALID)
 
         distance = calculations.distance_between(
-            simulator.get(name), simulator.get(other)
+            state.objects.get(name), state.objects.get(other)
         )
 
         return float64_array(self.modifier(distance, self.low, self.high))
@@ -88,14 +90,14 @@ class AbsoluteBearing(Observation):
         )
 
     def __call__(
-        self, name: str, other: str, simulator: SimpleWorld, **kwargs
+        self, name: str, other: str, state: SimulationState, **kwargs
     ) -> Any:
 
         if name is None:
             return numpy.array([DEFAULT_INVALID] * 2, numpy.float64)
 
         abs_bearing: float = calculations.absolute_bearing_between(
-            simulator.get(name), simulator.get(other)
+            state.objects.get(name), state.objects.get(other)
         )
 
         sin = numpy.sin(abs_bearing)
@@ -122,12 +124,12 @@ class Speed(Observation):
             dtype=numpy.float64,
         )
 
-    def __call__(self, name: str, simulator: SimpleWorld, **kwargs) -> Any:
+    def __call__(self, name: str, state: SimulationState, **kwargs) -> Any:
 
         if name is None:
             return float64_array(DEFAULT_INVALID)
 
-        speed: float = simulator.get(name).speed
+        speed: float = state.get(name).speed
 
         return float64_array(self.modify(speed))
 

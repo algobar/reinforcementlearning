@@ -9,7 +9,6 @@ from environments.conditions import (
     ConditionCollector,
     EnemyEnteredBaseCondition,
     MaxTimeExceededCondition,
-    ParticleAddedCondition,
 )
 from environments.observations import (
     AbsoluteBearing,
@@ -212,6 +211,7 @@ class ZoneDefense(MultiAgentEnv):
         self.base.set_position(self.grid_size / 2, self.grid_size / 2, 0)
         self.base.set_radius(self.base_radius)
         # add script to generate enemies
+
         def create_enemy(particle: Particle) -> None:
 
             start_angle_rad = numpy.random.uniform(0, 2 * numpy.pi)
@@ -460,25 +460,3 @@ class ZoneDefense(MultiAgentEnv):
         # clean up sim for next round
         self._remove_collided_enemies()
         return self._get_observation(agents_to_return), rewards, dones, {}
-
-    def render(self, mode):
-        """Render the simulation"""
-        from gym.envs.classic_control import rendering
-
-        """
-        if getattr(self, "_display") is None:
-            self._display = rendering.Viewer(self.grid_size, self.grid_size)
-
-            self.base_render = rendering.make_circle(radius=self.base.radius)
-            base_trans = rendering.Transform()
-            self.base_render.add_attr(base_trans)
-
-            self._display.add_geom(self.base_render)
-
-            self.agent_render = rendering.make_circle(radius=self.agent.radius)
-            agent_trans = rendering.Transform()
-            self.agent_render.add_attr(agent_trans)
-
-            self._display.add_geom(self.agent_render)
-        """
-        return self._display.render(True)

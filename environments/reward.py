@@ -23,7 +23,7 @@ class AgentInterceptionReward(BaseCallable):
 
     def __call__(self, **kwargs) -> float:
 
-        if self.condition(**kwargs):
+        if self.condition(**kwargs)[0]:
             return self.weight
 
         return 0
