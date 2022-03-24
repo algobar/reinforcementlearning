@@ -10,6 +10,20 @@ agent_radius: 0.5
 enemy_radius: 0.5
 sim_step_size: 0.1
 total_episode_time: 120
-reward_weights:
-  AgentInterceptionReward: 1
-  EnemyEnteredBaseReward: -1
+dones:
+  - name: environments.conditions.MaxTimeExceededCondition
+    kwargs:
+      max_time: 120
+  - name: environments.conditions.EnemyEnteredBaseCondition
+
+rewards:
+  - name: environments.reward.AgentInterceptionReward
+    kwargs:
+      weight: 1
+  - name: environments.reward.EnemyEnteredBaseReward
+    kwargs:
+      weight: 1
+
+conditions:
+  - name: environments.conditions.AgentTaskCompleteCondition
+  - name: environments.conditions.AgentInterception

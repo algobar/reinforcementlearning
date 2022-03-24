@@ -9,7 +9,6 @@ from gym import spaces
 import numpy
 
 from simulation import calculations
-from simulation.simulator import SimpleWorld
 
 
 BOX_LOW: float = -5

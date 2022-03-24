@@ -96,6 +96,12 @@ def create_position(x: float, y: float, z: float) -> numpy.array:
     return numpy.array([x, y, z], dtype=numpy.float32)
 
 
-def create_particle(name: str, position: numpy.array, type: Types):
+def create_particle(
+    name: str, type: Types, position: numpy.array = None
+) -> Particle:
+
+    if position is None:
+
+        position = create_position(0, 0, 0)
 
     return Particle(name, position, type)

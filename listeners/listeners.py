@@ -1,10 +1,8 @@
-from abc import ABC, abstractmethod
 from functools import wraps
 from listeners.cache import EventCache, STATE
 from simulation.messages import (
     Message,
     SimulationState,
-    SimulationStep,
     Collision,
     TaskComplete,
 )
@@ -29,44 +27,23 @@ def register_message(message_type: Message):
     return message_decorator
 
 
-class Listener(ABC):
-    @abstractmethod
-    def notify(message: Message, cache, **kwargs):
-        """Gives the listener the message to handle and a cache to update"""
-        ...
+@register_message(Collision)
+def notify_collision(message: Collision, cache: EventCache, **kwargs):
+
+    for particle in message.particles:
+        cache.add_message(particle.name, message)
 
 
-class CacheResetListener(Listener):
-    """Job is to look for simulation step messages
-    and reset the cache for any new events"""
+@register_message(SimulationState)
+def notify_simulation_state(
+    message: SimulationState, cache: EventCache, **kwargs
+):
 
-    @staticmethod
-    @register_message(SimulationStep)
-    def notify(message: SimulationStep, cache: EventCache, **kwargs):
-
-        cache.clear()
+    cache.clear()
+    cache.add_message(STATE, message)
 
 
-class CollisionListener(Listener):
-    @staticmethod
-    @register_message(Collision)
-    def notify(message: Collision, cache: EventCache, **kwargs):
+@register_message(TaskComplete)
+def notify_task_complete(message: TaskComplete, cache: EventCache, **kwargs):
 
-        for particle in message.particles:
-            cache.add_message(particle.name, message)
-
-
-class SimulationStateListener(Listener):
-    @staticmethod
-    @register_message(SimulationState)
-    def notify(message: SimulationState, cache: EventCache, **kwargs):
-
-        cache.add_message(STATE, message)
-
-
-class TaskComplete(Listener):
-    @staticmethod
-    @register_message(TaskComplete)
-    def notify(message: TaskComplete, cache: EventCache, **kwargs):
-
-        cache.add_message(message.particle.name, message)
+    cache.add_message(message.particle.name, message)
