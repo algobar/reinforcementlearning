@@ -128,7 +128,7 @@ class Speed(Observation):
         if name is None:
             return float64_array(DEFAULT_INVALID)
 
-        speed: float = state.get(name).speed
+        speed: float = state.objects.get(name).speed
 
         return float64_array(self.modify(speed))
 

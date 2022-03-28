@@ -1,3 +1,5 @@
+from functools import partial
+from typing import Callable
 import numpy
 from simulation.calculations import magnitude, straight_line_path_2d
 from simulation.particles import Particle
@@ -9,28 +11,29 @@ def go_to_point_2d(
     speed: float,
     timestep: float,
     threshold: float = 0.1,
+    **kwargs
 ) -> bool:
 
-    while magnitude(particle.position - destination) > threshold:
-        particle.position = straight_line_path_2d(
-            particle.position, destination, speed, timestep
-        )
+    if magnitude(particle.position - destination) > threshold:
+        return True
 
-        yield False
+    particle.position = straight_line_path_2d(
+        particle.position, destination, speed, timestep
+    )
 
-    yield True
+    return False
 
 
 def remain_in_location_seconds(
-    duration_seconds: float, timestep: float
+    end_time: float, current_time: float, **kwargs
 ) -> bool:
 
-    time_waited: float = 0
+    if current_time > end_time:
+        return True
 
-    while time_waited < duration_seconds:
+    return False
 
-        time_waited += timestep
 
-        yield False
+def create_behavior(behavior: Callable, **kwargs):
 
-    yield True
+    return partial(behavior, **kwargs)

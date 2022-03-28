@@ -55,11 +55,17 @@ class Simulator:
 
         self.scripts.clear()
 
-    def reset(self):
+    def remove_all(self):
 
         self.remove_all_particles()
         self.remove_all_scripts()
+
+    def reset(self):
+
         self.time = 0
+        for listener in self.listeners:
+
+            listener.notify(SimulationState(self.time, self.objects))
 
     def get(self, name: str) -> Particle:
         """Returns the particle of the given name"""

@@ -73,7 +73,7 @@ class Particle:
         if self.behavior is None:
             return
 
-        if self.behavior(particle=self, **kwargs):
+        if self.behavior(**kwargs):
             self.behavior = None
 
     def update(self, **kwargs) -> None:

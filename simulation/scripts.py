@@ -1,7 +1,15 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Callable
+import typing
+from simulation.particles import create_particle
 from simulation.types import Types
+
+if typing.TYPE_CHECKING:
+    from simulation.simulator import Simulator
+    from simulation.particles import Particle
 
 
 class Script(ABC):
@@ -20,22 +28,30 @@ class CreateEntityInterval(Script):
     _last_created: float = 0
     _created: int = 0
 
+    def get_of_type(self, simulator: Simulator, type: Particle):
+
+        return [
+            part for part in simulator.objects.values() if part.type == type
+        ]
+
     def update(self, simulator, timestep: float, **kwargs) -> None:
 
         if self._last_created + timestep < self.interval:
             self._last_created += timestep
             return
 
-        if len(simulator.get_all_of_type(self.type)) >= self.max:
+        if len(self.get_of_type(simulator, self.type)) >= self.max:
             return
 
         self._last_created = 0
 
-        particle = simulator.create_particle(
+        particle = create_particle(
             name=f"{self.prefix}-{self._created}", type=self.type
         )
 
         if self.setup_func:
             self.setup_func(particle)
+
+        simulator.add_particle(particle)
 
         self._created += 1

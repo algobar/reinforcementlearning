@@ -21,7 +21,11 @@ def test_init_gym(env_config):
 
     while not all_done:
 
-        enemies = env.simulator.get_all_of_type(Types.ENEMY)
+        enemies = [
+            part
+            for part in env.event_handler.get_state().objects.values()
+            if part.type == Types.ENEMY
+        ]
         get_action = lambda: random.choice(list(range(len(enemies) + 1)))
         actions = {a: get_action() for a in obs}
         obs, rwd, done, info = env.step(actions)
