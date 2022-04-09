@@ -1,11 +1,12 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import List
 from simulation.scripts import Script
 from simulation.messages import Message, SimulationState
 from .particles import (
     Particle,
 )
+import pprint
 
 
 @dataclass
@@ -27,6 +28,9 @@ class Simulator:
 
     listeners: list = field(default_factory=list)
 
+    def __str__(self):
+        return pprint.pformat(asdict(self))
+
     def add_particle(self, particle: Particle) -> None:
         """Adds a particle to the simulation.
 
@@ -39,6 +43,7 @@ class Simulator:
             raise KeyError(f"{particle.name} already exists!")
 
         self.objects[particle.name] = particle
+        particle.simulator = self
 
     def remove_particle(self, name: str) -> None:
         """Removes the provided name from the sim"""

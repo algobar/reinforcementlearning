@@ -22,7 +22,7 @@ class Particle:
     speed: float = 0
     radius: float = 0
 
-    _simulator: Simulator = None
+    simulator: Simulator = None
     _behavior: Callable = None
     _tasked: bool = False
 
@@ -53,6 +53,7 @@ class Particle:
 
         if self._behavior is None:
             self.tasked = False
+            return
 
         self.tasked = True
 

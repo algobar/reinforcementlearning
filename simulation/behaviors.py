@@ -14,7 +14,7 @@ def go_to_point_2d(
     **kwargs
 ) -> bool:
 
-    if magnitude(particle.position - destination) > threshold:
+    if magnitude(particle.position - destination) < threshold:
         return True
 
     particle.position = straight_line_path_2d(

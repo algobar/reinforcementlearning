@@ -2,3 +2,4 @@
 token.txt
 *venv*
 node_modules/
+private_experiments/
