@@ -31,7 +31,7 @@ from simulation.particles import (
     create_particle,
 )
 from simulation.scripts import CreateEntityInterval, Script
-from simulation import calculations
+from . import calculations
 from simulation.simulator import Simulator
 
 from ..modifier import NormalizeBox

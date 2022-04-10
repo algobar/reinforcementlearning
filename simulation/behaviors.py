@@ -1,7 +1,7 @@
 from functools import partial
 from typing import Callable
 import numpy
-from simulation.calculations import magnitude, straight_line_path_2d
+from library.vectors import magnitude, straight_line_path_2d
 from simulation.particles import Particle
 
 

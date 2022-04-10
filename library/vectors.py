@@ -7,6 +7,11 @@ from simulation.particles import Particle
 ABSOLUTE_NORTH: numpy.array = numpy.array([0, 1, 0], dtype=numpy.float32)
 
 
+def copy_array(arr: numpy.array) -> numpy.array:
+    """Return a copy of the array"""
+    return numpy.copy(arr)
+
+
 def magnitude(vec: numpy.array) -> float:
     """Find the magnitude of the vector
 
@@ -20,7 +25,14 @@ def magnitude(vec: numpy.array) -> float:
     return numpy.linalg.norm(vec) + 0.0001
 
 
-def calculate_absolute_bearing(origin: numpy.array, destination: numpy.array) -> float:
+def get_unit_vector(array: numpy.array) -> numpy.array:
+    """Return the unit vector of the array"""
+    return array / magnitude(array)
+
+
+def calculate_absolute_bearing(
+    origin: numpy.array, destination: numpy.array
+) -> float:
     """Calculate the bearing from the origin to the destination. Note that
     with the particle designation, this does not include any heading specific
     information, assuming that the bearing angle being calculated from the
@@ -186,6 +198,66 @@ def straight_line_path_2d(
     current += delta_arr
 
     return current
+
+
+def calculate_aspect_offset(
+    direction: numpy.array, offset_deg: float
+) -> numpy.array:
+    """
+    Given a vector, typically representing the direction something
+    is moving, calculate a unit vector representing an angle based
+    off the aspect of the origin vector.
+
+    This is done by reversing the direction vector, to establish the
+    reference point, then finding its angle in global space.
+
+    That angle then has the offset applied, and returned.
+
+    """
+
+    opposite = -1 * direction
+
+    angle_rad = numpy.arctan2(opposite[1], opposite[0])
+    offset_rad = numpy.deg2rad(offset_deg)
+
+    new_angle = angle_rad + offset_rad
+
+    if new_angle > 2 * numpy.pi:
+        new_angle -= 2 * numpy.pi
+    elif new_angle < 0:
+        new_angle += 2 * numpy.pi
+
+    offset_unit_vec = numpy.array(
+        [numpy.cos(new_angle), numpy.sin(new_angle), 0]
+    )
+
+    return offset_unit_vec
+
+
+def calculate_antenna_train_angle(
+    heading_unit_vec: numpy.array, relative_pos_unit_vec: numpy.array
+) -> float:
+    """
+    Given the direction of an object, and a unit vector representing
+    the direction towards an object, find the angle between those objects
+    relative to the first one's direction.
+
+    This is done by subtracting out the heading from the relative position,
+    to keep things in reference to originator. Divide by the magnitude
+    to keep as a unit vector, then find angle between.
+
+    """
+
+    diff = relative_pos_unit_vec - heading_unit_vec
+
+    diff /= magnitude(diff)
+
+    return numpy.arctan2(diff[1], diff[0])
+
+
+def calculate_unit_vec_between(vec: numpy.array, vec_2: numpy.array):
+    """Return a unit vector between two points"""
+    return (vec_2 - vec) / magnitude(vec_2 - vec)
 
 
 def in_bounds_of(p1: Particle, p2: Particle):
