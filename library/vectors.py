@@ -22,7 +22,7 @@ def magnitude(vec: numpy.array) -> float:
         float: scalar representing magnitude
     """
 
-    return numpy.linalg.norm(vec) + 0.0001
+    return numpy.linalg.norm(vec, axis=-1)
 
 
 def get_unit_vector(array: numpy.array) -> numpy.array:
@@ -258,21 +258,6 @@ def calculate_antenna_train_angle(
 def calculate_unit_vec_between(vec: numpy.array, vec_2: numpy.array):
     """Return a unit vector between two points"""
     return (vec_2 - vec) / magnitude(vec_2 - vec)
-
-
-def in_bounds_of(p1: Particle, p2: Particle):
-
-    return magnitude(p1.position - p2.position) < p2.radius
-
-
-def distance_between(p1: Particle, p2: Particle):
-
-    return magnitude(p1.position - p2.position)
-
-
-def absolute_bearing_between(p1: Particle, p2: Particle):
-
-    return calculate_absolute_bearing(p1.position, p2.position)
 
 
 def create_intercept_location(
