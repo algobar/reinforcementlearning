@@ -5,6 +5,7 @@ from typing import Tuple
 from simulation.particles import Particle
 
 ABSOLUTE_NORTH: numpy.array = numpy.array([0, 1, 0], dtype=numpy.float32)
+Degrees = float
 
 
 def copy_array(arr: numpy.array) -> numpy.array:
@@ -152,8 +153,8 @@ def calculate_2d_intercept(
         mag_ab: float = time * target_speed
 
     else:
-        sin_b: float = sin_a * math.sqrt(1 - sin_c ** 2) + sin_c * math.sqrt(
-            1 - sin_a ** 2
+        sin_b: float = sin_a * math.sqrt(1 - sin_c**2) + sin_c * math.sqrt(
+            1 - sin_a**2
         )
         mag_ab: float = magnitude(AC) * sin_c / sin_b
         time: float = mag_ab / target_speed
@@ -198,6 +199,29 @@ def straight_line_path_2d(
     current += delta_arr
 
     return current
+
+
+def calculate_aspect(
+    originator_heading: numpy.array,
+    originator_position: numpy.array,
+    target_position: numpy.array,
+) -> Degrees:
+    """Calculate aspect"""
+
+    diff_pos = target_position - originator_position
+    reverse_heading = originator_heading * -1
+
+    angle_cosine = numpy.dot(diff_pos, reverse_heading) / (
+        magnitude(diff_pos) * magnitude(reverse_heading)
+    )
+
+    if angle_cosine > 1.0:
+        angle_cosine = 1.0
+    angle_rad = numpy.arccos(angle_cosine)
+    angle_deg = numpy.rad2deg(angle_rad)
+    direction = -1 if numpy.cross(reverse_heading, diff_pos)[0] < 0 else 1
+
+    return angle_deg * direction
 
 
 def calculate_aspect_offset(
