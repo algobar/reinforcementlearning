@@ -1,0 +1,11 @@
+Metadata-Version: 1.2
+Name: easyrl
+Version: 0.0.1
+Summary: Easy rl environment building
+Home-page: UNKNOWN
+Author: Bob Barnhart
+Author-email: bob.ebarnhart@gmail.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >=3.6

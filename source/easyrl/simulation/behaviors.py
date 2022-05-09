@@ -1,8 +1,8 @@
 from functools import partial
 from typing import Callable
 import numpy
-from library.vectors import magnitude, straight_line_path_2d
-from simulation.particles import Particle
+from easyrl.library.vectors import magnitude, straight_line_path_2d
+from easyrl.simulation.particles import Particle
 
 
 def go_to_point_2d(

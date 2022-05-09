@@ -4,12 +4,12 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Callable
 import typing
-from simulation.particles import create_particle
-from simulation.types import Types
+from easyrl.simulation.particles import create_particle
+from easyrl.simulation.types import Types
 
 if typing.TYPE_CHECKING:
-    from simulation.simulator import Simulator
-    from simulation.particles import Particle
+    from easyrl.simulation.simulator import Simulator
+    from easyrl.simulation.particles import Particle
 
 
 class Script(ABC):
