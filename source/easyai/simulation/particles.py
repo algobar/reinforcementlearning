@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from typing import Callable
 import numpy
 
-from easyrl.simulation.messages import TaskComplete
-from easyrl.simulation.types import Types
+from easyai.simulation.messages import TaskComplete
+from easyai.simulation.types import Types
 
 
 @dataclass

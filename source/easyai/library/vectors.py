@@ -2,7 +2,7 @@ import math
 import numpy
 from typing import Tuple
 
-from easyrl.simulation.particles import Particle
+from easyai.simulation.particles import Particle
 
 ABSOLUTE_NORTH: numpy.array = numpy.array([0, 1, 0], dtype=numpy.float32)
 Degrees = float

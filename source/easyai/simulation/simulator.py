@@ -1,8 +1,8 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, asdict
 from typing import List
-from easyrl.simulation.scripts import Script
-from easyrl.simulation.messages import Message, SimulationState
+from easyai.simulation.scripts import Script
+from easyai.simulation.messages import Message, SimulationState
 from .particles import (
     Particle,
 )

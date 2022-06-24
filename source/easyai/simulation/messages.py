@@ -7,7 +7,7 @@ from typing import Dict, List
 from abc import ABC
 
 if typing.TYPE_CHECKING:
-    import easyrl.simulation.particles
+    import easyai.simulation.particles
 
 
 class Message(ABC):
