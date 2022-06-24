@@ -4,4 +4,4 @@ token.txt
 node_modules/
 private_experiments/
 experiments/
-*.egg-info/
+source/easyrl*.egg-info/
