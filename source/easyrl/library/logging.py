@@ -31,14 +31,14 @@ def create_stdout_logger(name: str, level=logging.DEBUG) -> logging.Logger:
 
 
 def create_json_logger(
-    name: str, filepath: str, level=logging.DEBUG
+    name: str, filepath: str, level=logging.DEBUG, mode='w'
 ) -> logging.Logger:
 
     logger = logging.getLogger(name)
     logger.setLevel(level)
     logger.propagate = False
 
-    handler = FileHandler(filepath, mode="w")
+    handler = FileHandler(filepath, mode=mode)
     handler.setLevel(level)
     handler.setFormatter(JSONFormatter())
 

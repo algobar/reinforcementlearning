@@ -20,7 +20,6 @@ def go_to_point_2d(
     particle.position = straight_line_path_2d(
         particle.position, destination, speed, timestep
     )
-
     return False
 
 
