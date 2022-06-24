@@ -4,4 +4,4 @@ token.txt
 node_modules/
 private_experiments/
 experiments/
-*.egg*
+*.egg-info/
