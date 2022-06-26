@@ -1,12 +1,32 @@
-from typing import Tuple, Dict
+from functools import reduce
+import operator
+import typing
+
+Reward = float
+RewardWeight = float
+RewardFuncType = typing.Callable[[object, object], float]
+
+def apply_scaling(rewards: typing.List[Reward], scales: typing.List[RewardWeight]) -> typing.List[float]:
+    """Multiply each reward by its corresponding scaled value"""
+    
+    assert len(rewards) == len(scales), "length mismatch"
+    
+    return [r*s for r,s in zip(rewards, scales)]
+
+def collect_rewards(rewards: typing.List[Reward], scales: typing.List[RewardWeight], operator=operator.add) -> float:
+    """Given the rewards and their weights, scale the rewards and apply the operator to reduce to single value"""
+    scaled = apply_scaling(rewards, scales)
+    result = reduce(operator, scaled)
+    return result
+
+
+'''
 from .base import BaseCallable, Collector
 
 from .conditions import (
     AgentInterception,
     EnemyEnteredBaseCondition,
 )
-
-
 class RewardCollector(Collector):
     def __call__(self, **kwargs) -> Tuple[float, Dict[str, float]]:
 
@@ -41,3 +61,4 @@ class EnemyEnteredBaseReward(BaseCallable):
             return self.weight
 
         return 0
+'''
