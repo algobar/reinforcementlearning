@@ -1,5 +1,4 @@
-from typing import Any, Callable, List, OrderedDict
-from .modifier import Modifier, float64_array
+from typing import Any, Callable, List, OrderedDict, Union
 from gym import spaces
 
 import numpy
@@ -24,6 +23,10 @@ How to define an observation?
 
 ExtractorFunc = Callable[[object], numpy.ndarray]
 ModifierFunc = Callable[[numpy.ndarray], numpy.ndarray]
+
+def create_array(data: List[Union[float, int, numpy.array]], dtype=DEFAULT_DTYPE) -> numpy.ndarray:
+    """Create a numpy array from the given list of data. Provides default data type"""
+    return numpy.array(data, dtype=dtype)
 
 def define_box_space(low_values: List[float], high_values: List[float], dtype=DEFAULT_DTYPE) -> spaces.Discrete:
     """Create a box space with the given low and high values for each index"""
@@ -64,10 +67,8 @@ def define_action_mask_space(total_actions: int) -> spaces.Box:
     """Define a space representing an action mask used to force agent to pick only certain ones"""
     return define_box_space([0]*total_actions, [1]*total_actions)
 
-# Extractor functions
-
 # Modifier Functions
 
-def convert_angle_to_sin_cos(angle_radians: numpy.ndarray, dtype=DEFAULT_DTYPE) -> numpy.ndarray:
+def convert_angle_to_sin_cos(angle_radians: numpy.ndarray) -> numpy.ndarray:
     """Convert the angle to a 2D sin/cos representation"""
-    return numpy.array([numpy.cos(angle_radians), numpy.sin(angle_radians)], numpy.float64)
+    return create_array([numpy.cos(angle_radians), numpy.sin(angle_radians)])

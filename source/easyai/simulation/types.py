@@ -1,7 +1,7 @@
 from enum import Enum, auto
 
 
-class Types(Enum):
+class ParticleTypes(Enum):
     """Represents types of objects in the simulation"""
 
     AGENT = auto()

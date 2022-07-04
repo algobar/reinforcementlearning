@@ -1,0 +1,1 @@
+"""Common data structures used in variety of applications"""
