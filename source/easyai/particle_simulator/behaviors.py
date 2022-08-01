@@ -1,8 +1,6 @@
-from functools import partial
-from typing import Callable
 import numpy
 from easyai.library.vectors import magnitude, straight_line_path_2d
-from easyai.simulation.particles import Particle
+from easyai.particle_simulator.types import Particle
 
 
 def go_to_point_2d(
@@ -11,28 +9,21 @@ def go_to_point_2d(
     speed: float,
     timestep: float,
     threshold: float = 0.1,
-    **kwargs
-) -> bool:
+) -> None:
 
     if magnitude(particle.position - destination) < threshold:
-        return True
+        return
 
     particle.position = straight_line_path_2d(
         particle.position, destination, speed, timestep
     )
-    return False
 
 
 def remain_in_location_seconds(
-    end_time: float, current_time: float, **kwargs
+    end_time: float, current_time: float
 ) -> bool:
 
     if current_time > end_time:
-        return True
+        return
 
     return False
-
-
-def create_behavior(behavior: Callable, **kwargs):
-
-    return partial(behavior, **kwargs)

@@ -50,24 +50,28 @@ class BaseMultiAgentEnv(MultiAgentEnv):
             done_func=self.dones,
         )
 
-def set_data_interface(environment: BaseMultiAgentEnv, data_interface: Callable) -> BaseMultiAgentEnv:
-    
+
+def set_data_interface(
+    environment: BaseMultiAgentEnv, data_interface: Callable
+) -> BaseMultiAgentEnv:
+
     environment.data_interface
     return environment
 
+
 def set_observation_space(
-    environment: BaseMultiAgentEnv, obs_space_func: Callable[[None], gym.Space]
+    environment: BaseMultiAgentEnv, obs_space: gym.Space
 ) -> BaseMultiAgentEnv:
 
-    environment.observation_space = obs_space_func()
+    environment.observation_space = obs_space
     return environment
 
 
 def set_action_space(
-    environment: BaseMultiAgentEnv, action_space_func: Callable[[None], gym.Space]
+    environment: BaseMultiAgentEnv, action_space: gym.Space
 ) -> BaseMultiAgentEnv:
 
-    environment.action_space = action_space_func()
+    environment.action_space = action_space
     return environment
 
 
@@ -129,7 +133,7 @@ def default_step_function(
     state = update_environment_func()
     ready_agents = get_ready_agents_func()
 
-    while len(ready_agents) is 0:
+    while len(ready_agents) == 0:
         state = update_environment_func()
         ready_agents = get_ready_agents_func()
 
@@ -144,8 +148,8 @@ def default_step_function(
 
 
 def build_gym_interface(
-    observation_space_func,
-    action_space_func,
+    observation_space,
+    action_space,
     observation_func,
     action_func,
     reward_func,
@@ -156,8 +160,8 @@ def build_gym_interface(
 
     env = BaseMultiAgentEnv()
 
-    env = set_observation_space(env, observation_space_func)
-    env = set_action_space(env, action_space_func)
+    env = set_observation_space(env, observation_space)
+    env = set_action_space(env, action_space)
     env = set_observation_func(env, observation_func)
     env = set_action_func(env, action_func)
     env = set_reward_func(env, reward_func)

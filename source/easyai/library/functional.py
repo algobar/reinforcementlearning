@@ -1,29 +1,24 @@
 """Module for building generic functional patterns"""
 
 import functools
-from typing import Callable
+from typing import Any, Callable, List
 
 
-def pass_along(intial_value, *chain_of_funcs):
-    """This defines a generic pattern of taking a starting value, 
-    passing it into another function, and continuing until the end
-    
-    such as....
-    
-    initial = 0
-    
-    pass_along(0, add_one, add_two, add_three)
-    
-    where the value at each operation becomes....
-    
-    1, 3, 6
-    
+def build_functional_chain(funcs: List[Callable]) -> Callable[[Any], Any]:
     """
-    
-    def evaluate_function(func: Callable[[object], object], value: object):
-        
-        return func(value)
-    
-    result = functools.reduce(evaluate_function, chain_of_funcs, intial_value)
-    
-    return result
+    Build a definition of functions where the result of previous is
+    passed to next func
+    """
+    return functools.partial(
+        functools.reduce, function=lambda x, y: x(y), sequence=funcs
+    )
+
+
+def functional_extraction(obj: Any, funcs: List[Callable]) -> List[Any]:
+    """Pass a single object to a series of functions and return their output"""
+    return list(map(lambda x: x(obj), funcs))
+
+
+def build_functional_extraction(funcs: List[Callable]) -> List[Any]:
+    """Wraps functional_extraction as a partial"""
+    return functools.partial(functional_extraction, funcs=funcs)
