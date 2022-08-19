@@ -19,9 +19,7 @@ def go_to_point_2d(
     )
 
 
-def remain_in_location_seconds(
-    end_time: float, current_time: float
-) -> bool:
+def remain_in_location_seconds(end_time: float, current_time: float) -> bool:
 
     if current_time > end_time:
         return

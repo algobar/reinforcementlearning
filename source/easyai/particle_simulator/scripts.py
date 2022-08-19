@@ -1,6 +1,7 @@
 from typing import Callable
 from easyai.environments.types import EntityType, Seconds
 
+
 def create_entity_interval(
     prefix: str,
     type: EntityType,
@@ -9,6 +10,7 @@ def create_entity_interval(
     setup_func: Callable,
 ):
     ...
+
 
 # def get_of_type(self, simulator: Simulator, type: Particle):
 

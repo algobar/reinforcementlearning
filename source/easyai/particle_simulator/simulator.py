@@ -130,7 +130,9 @@ def reset_new_particle(simulator: Simulator, data: Dict[str, float]):
 
 
 def reset_simulation(
-    parameters: List[Parameter], simulator: Simulator, get_param_func: GetResetFunction
+    parameters: List[Parameter],
+    simulator: Simulator,
+    get_param_func: GetResetFunction,
 ) -> Simulator:
     """Resets the simulation with the provided parameters"""
     for param in parameters:
@@ -144,7 +146,9 @@ def create_reset_function(
     simulator: Simulator, get_param_func: GetResetFunction
 ) -> ResetSimulation:
 
-    return partial(reset_simulation, simulator=simulator, get_param_func=get_param_func)
+    return partial(
+        reset_simulation, simulator=simulator, get_param_func=get_param_func
+    )
 
 
 register_function("particle", SIMULATION_NAME, reset_new_particle)

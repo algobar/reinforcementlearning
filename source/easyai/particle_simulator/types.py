@@ -51,5 +51,7 @@ Script = Callable[[SimulationTime], None]
 
 
 # Produces a matching function to implement the given parameter
-ImplementParticleSimParameter = Callable[[Parameter, Simulator], ImplementParameter]
+ImplementParticleSimParameter = Callable[
+    [Parameter, Simulator], ImplementParameter
+]
 GetResetFunction = Callable[[str], ImplementParticleSimParameter]
