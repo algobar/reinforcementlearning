@@ -1,13 +1,18 @@
+from cgitb import reset
 from functools import partial
-from typing import Dict, List, Optional
-from easyai.environments.registry import register_function
+from typing import Dict, List, Optional, Tuple
+from easyai.environments.interface import register_environment_interface
+from easyai.environments.registry import get_registered_function, register_function
 import numpy
-from easyai.particle_simulator.types import SIMULATION_NAME, Simulator
+from easyai.particle_simulator.types import SIMULATION_NAME, ImplementParticleSimParameter, Simulator
 from easyai.environments.types import (
+    AdvanceSimulation,
     EntityType,
     Parameter,
     Position,
     ResetSimulation,
+    Seconds,
+    SimulationInterface,
     Task,
 )
 from easyai.particle_simulator.types import Particle, GetResetFunction
@@ -49,6 +54,7 @@ def get_particle(simulator: Simulator, name: str) -> Particle:
 def remove_particle(simulator: Simulator, name: str) -> Simulator:
     """Removes the provided name from the sim"""
     simulator.objects.pop(name)
+    return Simulator
 
 
 def add_particle(simulator: Simulator, particle: Particle) -> Simulator:
@@ -64,6 +70,8 @@ def add_particle(simulator: Simulator, particle: Particle) -> Simulator:
 
     simulator.objects[particle.name] = particle
 
+    return simulator
+
 
 def remove_all_particles(simulator: Simulator) -> Simulator:
     """
@@ -71,16 +79,22 @@ def remove_all_particles(simulator: Simulator) -> Simulator:
     """
     simulator.objects.clear()
 
+    return simulator
+
 
 def remove_all_scripts(simulator: Simulator) -> Simulator:
 
     simulator.scripts.clear()
+
+    return simulator
 
 
 def remove_all(simulator: Simulator) -> Simulator:
 
     remove_all_particles(simulator)
     remove_all_scripts(simulator)
+
+    return simulator
 
 
 def register_script(simulator: Simulator, script) -> Simulator:
@@ -92,21 +106,35 @@ def register_script(simulator: Simulator, script) -> Simulator:
     """
     simulator.scripts.append(script)
 
+    return simulator
 
-def update(simulator: Simulator, tasks: List[Task]) -> Simulator:
+def step_simulator(simulator: Simulator) -> Simulator:
     """Updates the objects given the delta timestep in seconds"""
 
     for obj in simulator.objects.values():
 
-        obj.update(timestep=simulator.step_size)
+        obj.update(simulator.step_size)
 
     for script in simulator.scripts:
-        script.update(timestep=simulator.step_size, simulator=simulator)
+        script.update(simulator.step_size)
 
     simulator.time += simulator.step_size
 
+    return simulator
 
-# reset specific instructions ------------------------
+def apply_tasks(simulator: Simulator, tasks: List[Task]) -> Simulator:
+    """Update the objects, new scripts, etc. with new tasks"""
+    ...
+
+def run_simulation(simulator: Simulator, tasks: List[Task], advance: Seconds) -> Simulator:
+    """Implements any actions and steps the simulator at the given rate"""
+    start_time = simulator.time
+    apply_tasks(simulator, tasks)
+    while simulator.time < start_time + advance:
+        step_simulator(simulator)
+
+    return simulator
+# reset & setup specific instructions ------------------------
 
 
 def parse_new_particle(data: Dict[str, float]) -> Particle:
@@ -124,9 +152,13 @@ def parse_new_particle(data: Dict[str, float]) -> Particle:
 
 
 def reset_new_particle(simulator: Simulator, data: Dict[str, float]):
-    """Implements a reset function to add a new particle"""
+    """Parses the particle data and adds to the simulator"""
     particle = parse_new_particle(data)
     add_particle(simulator, particle)
+
+def get_reset_function(name: str) -> ImplementParticleSimParameter:
+    """Get the provided reset function"""
+    return get_registered_function(name, SIMULATION_NAME)
 
 
 def reset_simulation(
@@ -141,14 +173,27 @@ def reset_simulation(
         param_func_partial = partial(param_func, simulator)
         param_func_partial(param)
 
+    return simulator
+
 
 def create_reset_function(
     simulator: Simulator, get_param_func: GetResetFunction
 ) -> ResetSimulation:
-
+    """Creates the reset simulation function that matches the 
+    common environment interface
+    """
     return partial(
         reset_simulation, simulator=simulator, get_param_func=get_param_func
     )
 
 
+def build_environment(step_size: float) -> SimulationInterface:
+    """Initializes the environment and its interfaces"""
+    sim = Simulator(step_size)
+    reset_func = create_reset_function(sim, get_reset_function)
+    advance_func = partial(run_simulation, simulator=sim)
+
+    return SimulationInterface(reset_func, advance_func)
+
+register_environment_interface(SIMULATION_NAME, build_environment)
 register_function("particle", SIMULATION_NAME, reset_new_particle)

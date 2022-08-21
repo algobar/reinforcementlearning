@@ -1,46 +1,24 @@
-from typing import List
 from easyai.environments.types import (
-    AdvanceSimulation,
-    Parameter,
-    ResetSimulation,
-    Seconds,
-    StateInfo,
-    StoredStateInfo,
-    Task,
-    TransformState,
-    UpdateStateInfo,
+    ENVIRONMENT_BUILDER,
+    BuildSimulation,
+    SimulationConfig,
+    SimulationInterface
 )
 
-
-def reset_environment(
-    parameters: List[Parameter],
-    stored_states: StoredStateInfo,
-    reset_sim: ResetSimulation,
-    update_state: UpdateStateInfo,
-    transform_state: TransformState,
-) -> StateInfo:
-    """Resets the environment by passing the new parameters
-    and obtaining the new state"""
-
-    new_state = reset_sim(parameters)
-    new_stored_states = update_state(new_state, stored_states)
-    formed_state = transform_state(new_stored_states)
-
-    return formed_state
+from easyai.environments.registry import get_registered_function, register_function
 
 
-def step_environment(
-    tasks: List[Task],
-    update_time: Seconds,
-    stored_states: StoredStateInfo,
-    advance_sim: AdvanceSimulation,
-    update_state: UpdateStateInfo,
-    transform_state: TransformState,
-) -> StateInfo:
-    """Advances the environment by the given time"""
+def register_environment_interface(owner: str, build_sim_func: BuildSimulation) -> None:
+    """This function is used for simulators and other data
+    generation means to provide the necessary components to
+    register the functions needed to generate their environment,
+    as well as provide the step and reset functions needed at
+    runtime to pass data back and forth
+    """
 
-    new_state = advance_sim(tasks, update_time)
-    new_stored_states = update_state(new_state, stored_states)
-    formed_state = transform_state(new_stored_states)
+    register_function(ENVIRONMENT_BUILDER, owner, build_sim_func)
 
-    return formed_state
+def load_environment_interface(sim_config: SimulationConfig, owner: str) -> SimulationInterface:
+    """Loads the simulation builder and initializes it with the given config"""
+    builder = get_registered_function(ENVIRONMENT_BUILDER, owner)
+    return builder(**sim_config)
