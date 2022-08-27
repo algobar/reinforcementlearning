@@ -1,6 +1,6 @@
 """Module to describe tasks, which are input into a simulation"""
 from typing import List
-from easyai.environments.types import Task
+from aiassembly.environments.types import Task
 
 
 def create_task_list(*tasks) -> List[Task]:

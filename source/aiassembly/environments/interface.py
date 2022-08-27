@@ -1,11 +1,11 @@
-from easyai.environments.types import (
+from aiassembly.environments.types import (
     ENVIRONMENT_BUILDER,
     BuildSimulation,
     SimulationConfig,
     SimulationInterface
 )
 
-from easyai.environments.registry import get_registered_function, register_function
+from aiassembly.environments.registry import get_registered_function, register_function
 
 
 def register_environment_interface(owner: str, build_sim_func: BuildSimulation) -> None:

@@ -1,7 +1,7 @@
 """Module for loading implementation-specific functions and definitions"""
 
 from typing import Callable, Optional
-from easyai.environments.types import FunctionRegistry
+from aiassembly.environments.types import FunctionRegistry
 
 REGISTRY: FunctionRegistry = {}
 

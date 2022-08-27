@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, NamedTuple
-from easyai.environments.types import (
+from aiassembly.environments.types import (
     EntityType,
     EntityName,
     ImplementParameter,
@@ -13,10 +13,12 @@ from easyai.environments.types import (
 SIMULATION_NAME = "particle_simulation_environment"
 
 SimulationTime = Seconds
-
 Agent = EntityType("agent")
 Base = EntityType("base")
 Enemy = EntityType("enemy")
+# Functions that implement sim specific behavior
+Behavior = Callable[[SimulationTime], None]
+Script = Callable[[SimulationTime], None]
 
 
 class Particle(NamedTuple):
@@ -43,12 +45,6 @@ class Simulator:
     time: float = 0
     objects: Dict[str, Particle] = field(default_factory=dict)
     scripts: List[Callable] = field(default_factory=list)
-
-
-# Functions that implement sim specific behavior
-Behavior = Callable[[SimulationTime], None]
-Script = Callable[[SimulationTime], None]
-
 
 # Produces a matching function to implement the given parameter
 ImplementParticleSimParameter = Callable[

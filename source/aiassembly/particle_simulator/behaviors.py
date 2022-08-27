@@ -1,6 +1,6 @@
 import numpy
-from easyai.library.vectors import magnitude, straight_line_path_2d
-from easyai.particle_simulator.types import Particle
+from aiassembly.library.vectors import magnitude, straight_line_path_2d
+from aiassembly.particle_simulator.types import Particle
 
 
 def go_to_point_2d(

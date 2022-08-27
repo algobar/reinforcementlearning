@@ -1,11 +1,11 @@
 from cgitb import reset
 from functools import partial
 from typing import Dict, List, Optional, Tuple
-from easyai.environments.interface import register_environment_interface
-from easyai.environments.registry import get_registered_function, register_function
+from aiassembly.environments.interface import register_environment_interface
+from aiassembly.environments.registry import get_registered_function, register_function
 import numpy
-from easyai.particle_simulator.types import SIMULATION_NAME, ImplementParticleSimParameter, Simulator
-from easyai.environments.types import (
+from aiassembly.particle_simulator.types import SIMULATION_NAME, ImplementParticleSimParameter, Simulator
+from aiassembly.environments.types import (
     AdvanceSimulation,
     EntityType,
     Parameter,
@@ -15,7 +15,7 @@ from easyai.environments.types import (
     SimulationInterface,
     Task,
 )
-from easyai.particle_simulator.types import Particle, GetResetFunction
+from aiassembly.particle_simulator.types import Particle, GetResetFunction
 
 # particle specific functions --------------------------------
 

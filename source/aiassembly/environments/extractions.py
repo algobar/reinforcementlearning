@@ -3,19 +3,19 @@
 # extracting a single value
 from functools import partial
 from typing import Any, Callable, Dict, List
-from easyai.environments.types import StateInfo, 
+from aiassembly.environments.types import State
 
-def get_distance_between_points(state: StateInfo, originator: str, target: str) -> float:
+def get_distance_between_points(state: State, originator: str, target: str) -> float:
     """Return the distance between the two entities"""
     return 0.0
 
 
-def get_relative_bearing_between(state: StateInfo, originator: str, target: str) -> float:
+def get_relative_bearing_between(state: State, originator: str, target: str) -> float:
     """Return the heading of the"""
     return 0.0
 
 
-def get_speed(state: StateInfo, originator: str) -> float:
+def get_speed(state: State, originator: str) -> float:
     """Get the speed of the object"""
     return 0.0
 

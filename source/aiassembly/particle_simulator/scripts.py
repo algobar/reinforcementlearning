@@ -1,5 +1,5 @@
 from typing import Callable
-from easyai.environments.types import EntityType, Seconds
+from aiassembly.environments.types import EntityType, Seconds
 
 
 def create_entity_interval(
