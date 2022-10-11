@@ -12,7 +12,7 @@ def define_name(name: str, owner: str) -> str:
 
 
 def register_function(
-    name: str, owner: str, func: Callable, registry: Optional[FunctionRegistry] = None
+    name: str, owner: str, func: Callable, registry: FunctionRegistry = None
 ) -> None:
     """Registers the function under the given name and owner"""
     if registry is None:
@@ -24,7 +24,7 @@ def register_function(
 
 
 def get_registered_function(
-    name: str, owner: str, registry: Optional[FunctionRegistry]
+    name: str, owner: str, registry: FunctionRegistry=None
 ) -> Callable:
     """Returns the function registered by name and owner"""
     if registry is None:

@@ -5,10 +5,10 @@ from aiassembly.environments.types import (
     EntityName,
     ImplementParameter,
     Parameter,
-    Position,
     Seconds,
-    Speed,
 )
+
+import numpy
 
 SIMULATION_NAME = "particle_simulation_environment"
 
@@ -25,9 +25,9 @@ class Particle(NamedTuple):
     """Represents a simple object with position and speed"""
 
     name: EntityName
-    position: Position
+    position: numpy.ndarray
     type: EntityType
-    speed: Speed
+    speed: float
     radius: float
 
 
