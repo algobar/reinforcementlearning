@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, NamedTuple
+from typing import Any, Callable, Dict
 from aiassembly.environments.types import (
     EntityType,
     EntityName,
@@ -16,19 +16,21 @@ SimulationTime = Seconds
 Agent = EntityType("agent")
 Base = EntityType("base")
 Enemy = EntityType("enemy")
-# Functions that implement sim specific behavior
-Behavior = Callable[[SimulationTime], None]
-Script = Callable[[SimulationTime], None]
 
 
-class Particle(NamedTuple):
+@dataclass
+class Particle:
     """Represents a simple object with position and speed"""
 
     name: EntityName
-    position: numpy.ndarray
     type: EntityType
-    speed: float
     radius: float
+    position: numpy.ndarray = field(
+        default_factory=lambda: numpy.array([0, 0, 0])
+    )
+    speed: numpy.ndarray = field(
+        default_factory=lambda: numpy.array([0, 0, 0])
+    )
 
 
 @dataclass
@@ -44,7 +46,7 @@ class Simulator:
     step_size: float
     time: float = 0
     objects: Dict[str, Particle] = field(default_factory=dict)
-    scripts: List[Callable] = field(default_factory=list)
+
 
 # Produces a matching function to implement the given parameter
 ImplementParticleSimParameter = Callable[

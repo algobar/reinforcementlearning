@@ -2,22 +2,20 @@ import math
 import numpy
 from typing import Tuple
 
-from easyai.particle_simulator.particles import Particle
-
-ABSOLUTE_NORTH: numpy.array = numpy.array([0, 1, 0], dtype=numpy.float32)
+ABSOLUTE_NORTH: numpy.ndarray = numpy.ndarray([0, 1, 0], dtype=numpy.float32)
 Degrees = float
 
 
-def copy_array(arr: numpy.array) -> numpy.array:
+def copy_array(arr: numpy.ndarray) -> numpy.ndarray:
     """Return a copy of the array"""
     return numpy.copy(arr)
 
 
-def magnitude(vec: numpy.array) -> float:
+def magnitude(vec: numpy.ndarray) -> float:
     """Find the magnitude of the vector
 
     Args:
-        vec (numpy.array): [description]
+        vec (numpy.ndarray): [description]
 
     Returns:
         float: scalar representing magnitude
@@ -26,13 +24,13 @@ def magnitude(vec: numpy.array) -> float:
     return numpy.linalg.norm(vec, axis=-1)
 
 
-def get_unit_vector(array: numpy.array) -> numpy.array:
+def get_unit_vector(array: numpy.ndarray) -> numpy.ndarray:
     """Return the unit vector of the array"""
     return array / magnitude(array)
 
 
 def calculate_absolute_bearing(
-    origin: numpy.array, destination: numpy.array
+    origin: numpy.ndarray, destination: numpy.ndarray
 ) -> float:
     """Calculate the bearing from the origin to the destination. Note that
     with the particle designation, this does not include any heading specific
@@ -40,8 +38,8 @@ def calculate_absolute_bearing(
     y axis.
 
     Args:
-        origin (numpy.array): [description]
-        destination (numpy.array): [description]
+        origin (numpy.ndarray): [description]
+        destination (numpy.ndarray): [description]
 
     Returns:
         float: angle in radians
@@ -71,17 +69,17 @@ def determinant_2d(a: float, b: float, c: float, d: float):
 
 
 def calculate_2d_intercept(
-    interceptor_pos: numpy.array,
-    target_pos: numpy.array,
-    target_dest: numpy.array,
+    interceptor_pos: numpy.ndarray,
+    target_pos: numpy.ndarray,
+    target_dest: numpy.ndarray,
     interceptor_speed: float,
     target_speed: float,
-) -> Tuple[numpy.array, float]:
+) -> Tuple[numpy.ndarray, float]:
     """
 
     Args:
-        interceptor_pos (numpy.array): [description]
-        target_pos (numpy.array): [description]
+        interceptor_pos (numpy.ndarray): [description]
+        target_pos (numpy.ndarray): [description]
         interceptor_speed (float): [description]
         target_speed (float): [description]
 
@@ -130,8 +128,8 @@ def calculate_2d_intercept(
 
     """
 
-    AC: numpy.array = interceptor_pos - target_pos
-    AT: numpy.array = target_dest - target_pos
+    AC: numpy.ndarray = interceptor_pos - target_pos
+    AT: numpy.ndarray = target_dest - target_pos
 
     determinant: float = determinant_2d(AC[0], AC[1], AT[0], AT[1])
 
@@ -168,20 +166,10 @@ def calculate_2d_intercept(
 
 
 def straight_line_path_2d(
-    current: numpy.array, end: numpy.array, speed: float, timestep: float
-) -> numpy.array:
-    """Calculates the updated position based on the desired end position
-
-    Args:
-        current (Position): [description]
-        end (Position): [description]
-        speed (float): [description]
-        timestep (float): [description]
-
-    Returns:
-        bool: True when reached within 0.01 radius of position, else False
-    """
-    delta_pos: numpy.array = end - current
+    current: numpy.ndarray, end: numpy.ndarray, speed: float, timestep: float
+) -> numpy.ndarray:
+    """Calculates the updated position based on the desired end position"""
+    delta_pos: numpy.ndarray = end - current
 
     hypotenuse: float = magnitude(delta_pos)
 
@@ -195,16 +183,16 @@ def straight_line_path_2d(
     delta_x: float = step_size * math.cos(angle)
     delta_y: float = step_size * math.sin(angle)
 
-    delta_arr = numpy.array([delta_x, delta_y, 0], dtype=current.dtype)
+    delta_arr = numpy.ndarray([delta_x, delta_y, 0], dtype=current.dtype)
     current += delta_arr
 
     return current
 
 
 def calculate_aspect(
-    originator_heading: numpy.array,
-    originator_position: numpy.array,
-    target_position: numpy.array,
+    originator_heading: numpy.ndarray,
+    originator_position: numpy.ndarray,
+    target_position: numpy.ndarray,
 ) -> Degrees:
     """Calculate aspect"""
 
@@ -225,8 +213,8 @@ def calculate_aspect(
 
 
 def calculate_aspect_offset(
-    direction: numpy.array, offset_deg: float
-) -> numpy.array:
+    direction: numpy.ndarray, offset_deg: float
+) -> numpy.ndarray:
     """
     Given a vector, typically representing the direction something
     is moving, calculate a unit vector representing an angle based
@@ -251,7 +239,7 @@ def calculate_aspect_offset(
     elif new_angle < 0:
         new_angle += 2 * numpy.pi
 
-    offset_unit_vec = numpy.array(
+    offset_unit_vec = numpy.ndarray(
         [numpy.cos(new_angle), numpy.sin(new_angle), 0]
     )
 
@@ -259,7 +247,7 @@ def calculate_aspect_offset(
 
 
 def calculate_antenna_train_angle(
-    heading_unit_vec: numpy.array, relative_pos_unit_vec: numpy.array
+    heading_unit_vec: numpy.ndarray, relative_pos_unit_vec: numpy.ndarray
 ) -> float:
     """
     Given the direction of an object, and a unit vector representing
@@ -279,22 +267,26 @@ def calculate_antenna_train_angle(
     return numpy.arctan2(diff[1], diff[0])
 
 
-def calculate_unit_vec_between(vec: numpy.array, vec_2: numpy.array):
+def calculate_unit_vec_between(vec: numpy.ndarray, vec_2: numpy.ndarray):
     """Return a unit vector between two points"""
     return (vec_2 - vec) / magnitude(vec_2 - vec)
 
 
 def create_intercept_location(
-    interceptor: Particle,
-    target: Particle,
-    interceptor_speed: float,
-    target_speed: float,
-) -> numpy.array:
+    interceptor_position: numpy.ndarray,
+    target_position: numpy.ndarray,
+    interceptor_speed: numpy.ndarray,
+    target_speed: numpy.ndarray,
+) -> numpy.ndarray:
+
+    # TODO create a point extrapolated
+    # target current 
+    target_dest = None
 
     location, _ = calculate_2d_intercept(
-        interceptor.position,
-        target.position,
-        target.behavior.end,
+        interceptor_position,
+        target_position,
+        target_dest,
         interceptor_speed,
         target_speed,
     )
